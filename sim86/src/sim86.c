@@ -39,7 +39,13 @@ int disassemble86(FILE *out, BinFileReader *reader) {
 
     uint8_t *opcode;
     while((opcode = BinFileReader_read_bytes(reader, 1)) != NULL) {
-        Opcode_Err opcodeErr = opcodes[*opcode](out, reader, *opcode);
+        Opcode opcodeF = opcodes[*opcode];
+        if(opcodeF == NULL) {
+            fprintf(stderr, "sim86: error: Unknown opcode '%#010x'\n", *opcode);
+            return EXIT_FAILURE;
+        }
+
+        Opcode_Err opcodeErr = opcodeF(out, reader, *opcode);
         if(opcodeErr) {
             print_opcode_error(opcodeErr);
             return EXIT_FAILURE;
