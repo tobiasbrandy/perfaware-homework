@@ -1,0 +1,10 @@
+# Output files
+*.out
+bin/
+debug/
+obj/
+dev/
+
+# IDE
+.idea/
+.vscode/

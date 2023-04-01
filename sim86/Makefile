@@ -1,0 +1,78 @@
+# tool macros
+CFLAGS := -std=c17 -Wextra -Wall -pedantic -O -Wno-unused-parameter -Wno-implicit-fallthrough -Wno-unused-function -Werror=return-type -Wshadow -Wdouble-promotion -Wformat=2 -Wundef -fno-common
+DEVFLAGS := -g3 -fsanitize=address,leak,undefined,null,return,signed-integer-overflow,bool,enum,bounds -fno-omit-frame-pointer
+DBGFLAGS := -O0 -fno-sanitize=address,leak
+COBJFLAGS := $(CFLAGS) -c
+
+# path macros
+BIN_PATH := bin
+OBJ_PATH := obj
+SRC_PATH := src
+DEV_PATH := dev
+DBG_PATH := debug
+
+# compile macros
+TARGET_NAME := sim86
+ifeq ($(OS),Windows_NT)
+	TARGET_NAME := $(addsuffix .exe,$(TARGET_NAME))
+endif
+TARGET := $(BIN_PATH)/$(TARGET_NAME)
+TARGET_DEV := $(DEV_PATH)/$(TARGET_NAME)
+TARGET_DEBUG := $(DBG_PATH)/$(TARGET_NAME)
+
+# src files & obj files
+SRC := $(foreach x, $(SRC_PATH), $(wildcard $(addprefix $(x)/*,.c)))
+OBJ := $(addprefix $(OBJ_PATH)/, $(addsuffix .o, $(notdir $(basename $(SRC)))))
+OBJ_DEV := $(addprefix $(DEV_PATH)/, $(addsuffix .o, $(notdir $(basename $(SRC)))))
+OBJ_DEBUG := $(addprefix $(DBG_PATH)/, $(addsuffix .o, $(notdir $(basename $(SRC)))))
+
+# clean files list
+DISTCLEAN_LIST := $(OBJ) \
+				  $(OBJ_DEV) \
+                  $(OBJ_DEBUG)
+CLEAN_LIST := $(TARGET) \
+			  $(TARGET_DEV) \
+			  $(TARGET_DEBUG) \
+			  $(DISTCLEAN_LIST)
+
+default: makedir all
+
+# non-phony targets
+$(TARGET): $(OBJ)
+	$(CC) -o $@ $(OBJ) $(CFLAGS)
+
+$(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
+	$(CC) $(COBJFLAGS) -o $@ $<
+
+$(DEV_PATH)/%.o: $(SRC_PATH)/%.c
+	$(CC) $(COBJFLAGS) $(DEVFLAGS)  -o $@ $<
+
+$(DBG_PATH)/%.o: $(SRC_PATH)/%.c
+	$(CC) $(COBJFLAGS) $(DEVFLAGS) $(DBGFLAGS) -o $@ $<
+
+$(TARGET_DEV): $(OBJ_DEV)
+	$(CC) $(CFLAGS) $(DEVFLAGS) $(OBJ_DEV) -o $@
+
+$(TARGET_DEBUG): $(OBJ_DEBUG)
+	$(CC) $(CFLAGS) $(DEVFLAGS) $(DBGFLAGS) $(OBJ_DEBUG) -o $@
+
+.PHONY: all
+all: $(TARGET)
+
+.PHONY: makedir
+makedir:
+	@mkdir -p $(BIN_PATH) $(OBJ_PATH) $(DBG_PATH) $(DEV_PATH)
+
+.PHONY: debug
+debug: $(TARGET_DEBUG)
+
+.PHONY: dev
+dev: $(TARGET_DEV)
+
+.PHONY: clean
+clean:
+	@rm -f $(CLEAN_LIST)
+
+.PHONY: distclean
+distclean:
+	@rm -f $(DISTCLEAN_LIST)
