@@ -69,6 +69,10 @@ debug: $(TARGET_DEBUG)
 .PHONY: dev
 dev: $(TARGET_DEV)
 
+.PHONY: test
+test: dev
+	./asm_diff.sh tests/*.asm
+
 .PHONY: clean
 clean:
 	@rm -f $(CLEAN_LIST)
