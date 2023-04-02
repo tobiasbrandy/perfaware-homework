@@ -1,8 +1,8 @@
 # tool macros
-CFLAGS := -std=c17 -Wextra -Wall -pedantic -O -Wno-unused-parameter -Wno-implicit-fallthrough -Wno-unused-function -Werror=return-type -Wshadow -Wdouble-promotion -Wformat=2 -Wundef -fno-common
-DEVFLAGS := -g3 -fsanitize=address,leak,undefined,null,return,signed-integer-overflow,bool,enum,bounds -fno-omit-frame-pointer
-DBGFLAGS := -O0 -fno-sanitize=address,leak
-COBJFLAGS := $(CFLAGS) -c
+BASEFLAGS := -std=c17 -Wextra -Wall -pedantic -Wno-unused-parameter -Wno-implicit-fallthrough -Wno-unused-function -Werror=return-type -Wshadow -Wdouble-promotion -Wformat=2 -Wundef -fno-common
+CFLAGS := $(BASEFLAGS) -O2
+DEVFLAGS := $(BASEFLAGS) -g3 -Og -fsanitize=address,leak,undefined,null,return,signed-integer-overflow,bool,enum,bounds -fno-omit-frame-pointer
+DBGFLAGS := -fno-sanitize=address,leak -O0
 
 # path macros
 BIN_PATH := bin
@@ -42,19 +42,19 @@ $(TARGET): $(OBJ)
 	$(CC) -o $@ $(OBJ) $(CFLAGS)
 
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
-	$(CC) $(COBJFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(DEV_PATH)/%.o: $(SRC_PATH)/%.c
-	$(CC) $(COBJFLAGS) $(DEVFLAGS)  -o $@ $<
+	$(CC) $(DEVFLAGS) -c -o $@ $<
 
 $(DBG_PATH)/%.o: $(SRC_PATH)/%.c
-	$(CC) $(COBJFLAGS) $(DEVFLAGS) $(DBGFLAGS) -o $@ $<
+	$(CC) $(DEVFLAGS) $(DBGFLAGS) -c -o $@ $<
 
 $(TARGET_DEV): $(OBJ_DEV)
-	$(CC) $(CFLAGS) $(DEVFLAGS) $(OBJ_DEV) -o $@
+	$(CC) $(DEVFLAGS) $(OBJ_DEV) -o $@
 
 $(TARGET_DEBUG): $(OBJ_DEBUG)
-	$(CC) $(CFLAGS) $(DEVFLAGS) $(DBGFLAGS) $(OBJ_DEBUG) -o $@
+	$(CC) $(DEVFLAGS) $(DBGFLAGS) $(OBJ_DEBUG) -o $@
 
 .PHONY: all
 all: $(TARGET)
