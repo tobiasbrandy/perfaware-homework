@@ -6,6 +6,8 @@
 #include "regs.h"
 
 /*
+ * Reference: https://edge.edx.org/c4x/BITSPilani/EEE231/asset/8086_family_Users_Manual_1_.pdf
+ *
  * w = 0: Instruction operates in byte data.
  * w = 1: Instruction operates in word data.
  *
@@ -20,53 +22,70 @@
 
 #define MAX_ARG_LEN 23 // Example: `word [bp + di - 10044]\0`
 
-#define READ_BYTE(reader, out) do { \
-    uint8_t *MACRO_tmp;\
-    if((MACRO_tmp = BinFileReader_read_bytes(reader, 1)) == NULL) {\
-        return read_error_code(reader);\
-    }\
-    out = *MACRO_tmp;\
+#define CHECK_ERR(exp) do { \
+    Opcode_Err CHECK_ERR_err; \
+    if((CHECK_ERR_err = exp)) { \
+        return CHECK_ERR_err; \
+    } \
     } while(0)
 
-#define READ_WORD(reader, out) do { \
-    uint8_t *MACRO_tmp;\
-    if((MACRO_tmp = BinFileReader_read_bytes(reader, 2)) == NULL) {\
-        return read_error_code(reader);\
-    }\
-    out = (MACRO_tmp[1] << 8) + MACRO_tmp[0];\
+#define READ_BYTE(out, reader) do { \
+    uint8_t *READ_BYTE_tmp; \
+    if((READ_BYTE_tmp = BinFileReader_read_bytes(reader, 1)) == NULL) { \
+        return read_error_code(reader); \
+    } \
+    out = *READ_BYTE_tmp; \
     } while(0)
 
-#define READ_MOD_REG_RM(reader, mod, reg, r_m) do { \
-        uint8_t MACRO_cmd;\
-        READ_BYTE(reader, MACRO_cmd);\
+#define READ_WORD(out, reader) do { \
+    uint8_t *READ_WORD_tmp; \
+    if((READ_WORD_tmp = BinFileReader_read_bytes(reader, 2)) == NULL) { \
+        return read_error_code(reader); \
+    } \
+    out = (READ_WORD_tmp[1] << 8) + READ_WORD_tmp[0];\
+    } while(0)
+
+#define READ_MOD_REG_RM(reader, mod, reg, r_m) do {\
+        uint8_t READ_MOD_REG_RM_cmd;\
+        READ_BYTE(READ_MOD_REG_RM_cmd, reader);\
         \
-        mod = (MACRO_cmd & 0xC0) >> 6;\
-        reg = (MACRO_cmd & 0x38) >> 3;\
-        r_m = MACRO_cmd & 0x07;\
+        mod = (READ_MOD_REG_RM_cmd & 0xC0) >> 6;\
+        reg = (READ_MOD_REG_RM_cmd & 0x38) >> 3;\
+        r_m = READ_MOD_REG_RM_cmd & 0x07;\
     } while(0)
 
-Opcode_Err read_error_code(BinFileReader *reader) {
+inline Opcode_Err read_error_code(BinFileReader *reader) {
     if(BinFileReader_status(reader) == BinFileReader_Status_ERROR) {
         return Opcode_Err_FILE_ERR;
     }
     return Opcode_Err_EOF;
 }
 
-int read_8_bit_val(BinFileReader *reader, char *dst) {
-    uint8_t addr;
-    READ_BYTE(reader, addr);
+inline Opcode_Err read_int8(char **dst, BinFileReader *reader) {
+    int8_t addr;
+    READ_BYTE(addr, reader);
 
-    return sprintf(dst, "%d", addr);
+    *dst += sprintf(*dst, "%d", addr);
+    return Opcode_Err_OK;
 }
 
-int read_16_bit_val(BinFileReader *reader, char *dst) {
-    uint16_t addr;
-    READ_WORD(reader, addr);
+inline Opcode_Err read_int16(char **dst, BinFileReader *reader) {
+    int16_t addr;
+    READ_WORD(addr, reader);
 
-    return sprintf(dst, "%d", addr);
+    *dst += sprintf(*dst, "%d", addr);
+    return Opcode_Err_OK;
 }
 
-int effective_addr_base(uint8_t r_m, char *dst) {
+inline bool isMemoryMode(uint8_t mod) {
+    return mod == 0x00 || mod == 0x01 || mod == 0x02;
+}
+
+inline bool isRegisterMode(uint8_t mod) {
+    return mod == 0x03;
+}
+
+int effective_addr_base(char *dst, uint8_t r_m) {
     switch(r_m) {
         case 0x00: return sprintf(dst, "%s + %s", wordRegs[REG_BX], wordRegs[REG_SI]);
         case 0x01: return sprintf(dst, "%s + %s", wordRegs[REG_BX], wordRegs[REG_DI]);
@@ -80,68 +99,67 @@ int effective_addr_base(uint8_t r_m, char *dst) {
     }
 }
 
-char *effective_addr(BinFileReader *reader, char *dst, uint8_t mod, uint8_t r_m) {
-    *dst++ = '[';
+Opcode_Err resolve_mem_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m) {
+    *(*dst)++ = '[';
 
     if(mod == 0x00 && r_m == 0x06) {
         // Direct Address
-        dst += read_16_bit_val(reader, dst);
+        CHECK_ERR(read_int16(dst, reader));
         goto end;
     }
 
-    dst += effective_addr_base(r_m, dst);
+    *dst += effective_addr_base(*dst, r_m);
 
     if(mod == 0x00) {
+        // No displacement
         goto end;
     }
 
-    *dst++ = ' ';
-    *dst++ = '+';
-    *dst++ = ' ';
-
+    int displacement;
     if(mod == 0x01) {
         // 8-bit displacement
-        dst += read_8_bit_val(reader, dst);
+        int8_t tmp;
+        READ_BYTE(tmp, reader);
+        displacement = (int16_t) tmp;
     } else {
         // 16-bit displacement
-        dst += read_16_bit_val(reader, dst);
+        int16_t tmp;
+        READ_WORD(tmp, reader);
+        displacement = tmp;
     }
+
+    char sign;
+    if(displacement >= 0) {
+        sign = '+';
+    } else {
+        sign = '-';
+        displacement = -displacement;
+    }
+
+    *dst += sprintf(*dst, " %c %d", sign, displacement);
 
     end:
-    *dst++ = ']';
-    return dst;
+    *(*dst)++ = ']';
+    return Opcode_Err_OK;
 }
 
-char *resolve_rm_addr(BinFileReader *reader, char *dst, uint8_t mod, uint8_t r_m, bool w) {
-    switch(mod) {
-        case 0x00: case 0x01: case 0x02: {
-            dst = effective_addr(reader, dst, mod, r_m);
-            break;
-        }
-        case 0x03: {
-            // Register Mode
-            dst += sprintf(dst, "%s", w ? wordRegs[r_m] : byteRegs[r_m]);
-            break;
-        }
-        default: break;
-    }
-
-    return dst;
+inline Opcode_Err resolve_reg(char **dst, uint8_t  reg, bool w) {
+    *dst += sprintf(*dst, "%s", w ? wordRegs[reg] : byteRegs[reg]);
+    return Opcode_Err_OK;
 }
 
-char *resolve_reg(char *dst, uint8_t  reg, bool w) {
-    dst += sprintf(dst, "%s", w ? wordRegs[reg] : byteRegs[reg]);
-    return dst;
+inline Opcode_Err resolve_rm_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m, bool w) {
+    return isMemoryMode(mod)
+        ? resolve_mem_addr(dst, reader, mod, r_m)
+        : resolve_reg(dst, r_m, w)
+        ;
 }
 
-char *resolve_immediate_val(BinFileReader *reader, char *dst, bool w) {
-    if(w) {
-        dst += read_16_bit_val(reader, dst);
-    } else {
-        dst += read_8_bit_val(reader, dst);
-    }
-
-    return dst;
+inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader, bool w) {
+    return w
+        ? read_int16(dst, reader)
+        : read_int8(dst, reader)
+        ;
 }
 
 /* -------------------- OPCODES ---------------------- */
@@ -159,11 +177,11 @@ Opcode_Err mov_rm_tf_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
     uint8_t mod, reg, r_m;
     READ_MOD_REG_RM(reader, mod, reg, r_m);
 
-    regArg = resolve_reg(regArg, reg, w);
-    r_mArg = resolve_rm_addr(reader, r_mArg, mod, r_m, w);
+    CHECK_ERR(resolve_reg(&regArg, reg, w));
+    CHECK_ERR(resolve_rm_addr(&r_mArg, reader, mod, r_m, w));
 
-    *regArg++ = 0;
-    *r_mArg++ = 0;
+    *regArg = 0;
+    *r_mArg = 0;
 
     fprintf(out, "mov %s, %s\n", dstBuf, srcBuf);
     return Opcode_Err_OK;
@@ -183,11 +201,16 @@ Opcode_Err mov_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
         return Opcode_Err_INVALID_ARG;
     }
 
-    r_mArg = resolve_rm_addr(reader, r_mArg, mod, r_m, w);
-    immArg = resolve_immediate_val(reader, immArg, w);
+    CHECK_ERR(resolve_rm_addr(&r_mArg, reader, mod, r_m, w));
 
-    *immArg++ = 0;
-    *r_mArg++ = 0;
+    if(isMemoryMode(mod)) {
+        // Need explicit size on immediate value
+        immArg += sprintf(immArg, w ? "word " : "byte ");
+    }
+    CHECK_ERR(resolve_immediate_val(&immArg, reader, w));
+
+    *immArg = 0;
+    *r_mArg = 0;
 
     fprintf(out, "mov %s, %s\n", dstBuf, srcBuf);
     return Opcode_Err_OK;
@@ -201,11 +224,11 @@ Opcode_Err mov_imm_to_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
     bool w = cmd & 0x08;        // 0b00001000
     uint8_t reg = cmd & 0x07;   // 0b00000111
 
-    regArg = resolve_reg(regArg, reg, w);
-    immArg = resolve_immediate_val(reader, immArg, w);
+    CHECK_ERR(resolve_reg(&regArg, reg, w));
+    CHECK_ERR(resolve_immediate_val(&immArg, reader, w));
 
-    *immArg++ = 0;
-    *regArg++ = 0;
+    *immArg = 0;
+    *regArg = 0;
 
     fprintf(out, "mov %s, %s\n", dstBuf, srcBuf);
     return Opcode_Err_OK;
@@ -214,12 +237,15 @@ Opcode_Err mov_imm_to_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
 // MOV memory to/from accumulator
 Opcode_Err mov_mem_tf_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
     char addrBuf[MAX_ARG_LEN];
+    char *addr = addrBuf;
 
     bool d = (cmd & 0x02) >> 1; // 0b00000010
     bool w = cmd & 0x01;        // 0b00000001
 
     const char *acc = w ? wordRegs[REG_AX] : byteRegs[REG_AL];
-    read_16_bit_val(reader, addrBuf);
+    CHECK_ERR(read_int16(&addr, reader));
+
+    *addr = 0;
 
     if(d) {
         fprintf(out, "mov [%s], %s\n", addrBuf, acc);
@@ -228,7 +254,6 @@ Opcode_Err mov_mem_tf_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
     }
 
     return Opcode_Err_OK;
-
 }
 
 Opcode opcodes[OPCODE_COUNT] = {
@@ -264,11 +289,11 @@ Opcode opcodes[OPCODE_COUNT] = {
         [0xA0] = mov_mem_tf_acc,
         [0xA1] = mov_mem_tf_acc,
         [0xA2] = mov_mem_tf_acc,
-        [0xA3] = mov_mem_tf_acc, // TEST is it with AL?
-
+        [0xA3] = mov_mem_tf_acc,
 };
 
 #undef MAX_ARG_LEN
+#undef CHECK_ERR
 #undef READ_BYTE
 #undef READ_WORD
 #undef READ_MOD_REG_RM
