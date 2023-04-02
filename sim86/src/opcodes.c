@@ -150,16 +150,16 @@ static Opcode_Err resolve_mem_addr(char **dst, BinFileReader *reader, uint8_t mo
     return Opcode_Err_OK;
 }
 
-static inline Opcode_Err resolve_reg(char **dst, uint8_t  reg, bool w) {
+static inline Opcode_Err resolve_reg(char **dst, uint8_t reg, bool w) {
     *dst += sprintf(*dst, "%s", w ? wordRegs[reg] : byteRegs[reg]);
     return Opcode_Err_OK;
 }
 
 static inline Opcode_Err resolve_rm_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m, bool w) {
     return isMemoryMode(mod)
-        ? resolve_mem_addr(dst, reader, mod, r_m)
-        : resolve_reg(dst, r_m, w)
-        ;
+           ? resolve_mem_addr(dst, reader, mod, r_m)
+           : resolve_reg(dst, r_m, w)
+           ;
 }
 
 static inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader, bool s, bool w) {
@@ -173,9 +173,9 @@ static inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader
     }
 
     return w
-        ? read_int16(dst, reader)
-        : read_int8(dst, reader)
-        ;
+           ? read_int16(dst, reader)
+           : read_int8(dst, reader)
+           ;
 }
 
 /* -------------------- GENERALIZED OPCODES ---------------------- */
@@ -242,9 +242,10 @@ static Opcode_Err op_imm_to_acc(const char *op, FILE *out, BinFileReader *reader
 /* ------- ARITH (ADD, OR, ADC, SBB, AND, SUB, XOR, CMP) ------- */
 static const char *arithCodeToOp[8] = {
         [0] = "add", [1] = "or", [2] = "adc",
-        [3] = "sbb", [4] = "and",[5] = "sub",
+        [3] = "sbb", [4] = "and", [5] = "sub",
         [6] = "xor", [7] = "cmp",
 };
+
 static inline const char *arith_op_name(uint8_t cmd) {
     return arithCodeToOp[(cmd & 0x38) >> 3]; // 0b00111000
 }
@@ -370,7 +371,7 @@ Opcode opcodes[OPCODE_COUNT] = {
         [0xBC] = mov_imm_to_reg, [0xBD] = mov_imm_to_reg, [0xBE] = mov_imm_to_reg, [0xBF] = mov_imm_to_reg,
 
         // 0b101000|d|w: MOV memory to/from accumulator
-        [0xA0] = mov_mem_tf_acc,[0xA1] = mov_mem_tf_acc,[0xA2] = mov_mem_tf_acc,[0xA3] = mov_mem_tf_acc,
+        [0xA0] = mov_mem_tf_acc, [0xA1] = mov_mem_tf_acc, [0xA2] = mov_mem_tf_acc, [0xA3] = mov_mem_tf_acc,
 };
 
 #undef MAX_ARG_LEN
