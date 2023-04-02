@@ -156,10 +156,7 @@ static inline Opcode_Err resolve_reg(char **dst, uint8_t reg, bool w) {
 }
 
 static inline Opcode_Err resolve_rm_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m, bool w) {
-    return isMemoryMode(mod)
-           ? resolve_mem_addr(dst, reader, mod, r_m)
-           : resolve_reg(dst, r_m, w)
-           ;
+    return isMemoryMode(mod) ? resolve_mem_addr(dst, reader, mod, r_m) : resolve_reg(dst, r_m, w);
 }
 
 static inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader, bool s, bool w) {
@@ -172,10 +169,7 @@ static inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader
         return Opcode_Err_OK;
     }
 
-    return w
-           ? read_int16(dst, reader)
-           : read_int8(dst, reader)
-           ;
+    return w ? read_int16(dst, reader) : read_int8(dst, reader);
 }
 
 /* -------------------- GENERALIZED OPCODES ---------------------- */
@@ -332,6 +326,45 @@ static Opcode_Err mov_mem_tf_acc(FILE *out, BinFileReader *reader, uint8_t cmd) 
     return Opcode_Err_OK;
 }
 
+/* ------- JMP ------- */
+static Opcode_Err op_jmp_8bit_inc(const char *op, FILE *out, BinFileReader *reader) {
+    // inc = increment before jmp instruction
+    int8_t inc;
+    READ_BYTE(inc, reader);
+
+    // realInc = increment after jmp instruction
+    int realInc = inc + 2;
+
+    if(realInc >= 0) {
+        fprintf(out, "%s $+%d\n", op, realInc);
+    } else {
+        fprintf(out, "%s $%d\n", op, realInc);
+    }
+
+    return Opcode_Err_OK;
+}
+
+static Opcode_Err je(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("je", out, reader); }
+static Opcode_Err jl(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jl", out, reader); }
+static Opcode_Err jle(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jle", out, reader); }
+static Opcode_Err jb(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jb", out, reader); }
+static Opcode_Err jbe(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jbe", out, reader); }
+static Opcode_Err jp(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jp", out, reader); }
+static Opcode_Err jo(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jo", out, reader); }
+static Opcode_Err js(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("js", out, reader); }
+static Opcode_Err jne(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jne", out, reader); }
+static Opcode_Err jnl(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jnl", out, reader); }
+static Opcode_Err jnle(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jnle", out, reader); }
+static Opcode_Err jnb(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jnb", out, reader); }
+static Opcode_Err jnbe(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jnbe", out, reader); }
+static Opcode_Err jnp(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jnp", out, reader); }
+static Opcode_Err jno(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jno", out, reader); }
+static Opcode_Err jns(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jns", out, reader); }
+static Opcode_Err loop(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("loop", out, reader); }
+static Opcode_Err loope(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("loope", out, reader); }
+static Opcode_Err loopne(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("loopne", out, reader); }
+static Opcode_Err jcxz(FILE *out, BinFileReader *reader, uint8_t _) { return op_jmp_8bit_inc("jcxz", out, reader); }
+
 Opcode opcodes[OPCODE_COUNT] = {
         /* ------- ARITH (ADD, OR, ADC, SBB, AND, SUB, XOR, CMP) ------- */
         // 0b00|opc|0|d|w: ARITH register/memory with register to either
@@ -372,6 +405,11 @@ Opcode opcodes[OPCODE_COUNT] = {
 
         // 0b101000|d|w: MOV memory to/from accumulator
         [0xA0] = mov_mem_tf_acc, [0xA1] = mov_mem_tf_acc, [0xA2] = mov_mem_tf_acc, [0xA3] = mov_mem_tf_acc,
+
+        /* ------- JMP ------- */
+        [0x74] = je,    [0x7C] = jl,    [0x7E] = jle,   [0x72] = jb,    [0x76] = jbe,   [0x7A] = jp,    [0x70] = jo,
+        [0x78] = js,    [0x75] = jne,   [0x7D] = jnl,   [0x7F] = jnle,  [0x73] = jnb,   [0x77] = jnbe,  [0x7B] = jnp,
+        [0x71] = jno,   [0x79] = jns,   [0xE2] = loop,  [0xE1] = loope, [0xE0] = loopne,[0xE3] = jcxz,
 };
 
 #undef MAX_ARG_LEN
