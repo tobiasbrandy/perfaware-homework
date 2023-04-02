@@ -9,7 +9,7 @@
 #define BUF_SIZE 64
 static uint8_t buf[BUF_SIZE];
 
-void print_opcode_error(Opcode_Err err) {
+static void print_opcode_error(Opcode_Err err) {
     switch(err) {
         case Opcode_Err_OK: {
             // No error
@@ -34,7 +34,7 @@ void print_opcode_error(Opcode_Err err) {
     }
 }
 
-int disassemble86(FILE *out, BinFileReader *reader) {
+static int disassemble86(FILE *out, BinFileReader *reader) {
     fprintf(out, "bits 16\n\n");
 
     uint8_t *opcode;

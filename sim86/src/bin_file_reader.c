@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-bool hydrate(BinFileReader *reader);
+static bool hydrate(BinFileReader *reader);
 
 BinFileReader BinFileReader_create(FILE *file, uint8_t buf[], uint16_t size) {
     const BinFileReader ret = {
@@ -43,7 +43,7 @@ uint8_t *BinFileReader_read_bytes(BinFileReader *reader, uint16_t n) {
     return ret;
 }
 
-bool hydrate(BinFileReader *reader) {
+static bool hydrate(BinFileReader *reader) {
     uint16_t remaining = reader->size - reader->pos;
     memcpy(reader->buf, reader->buf + reader->pos, remaining);
     reader->pos = 0;

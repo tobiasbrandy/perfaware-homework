@@ -92,7 +92,7 @@ static inline bool isMemoryMode(uint8_t mod) {
     return mod == 0x00 || mod == 0x01 || mod == 0x02;
 }
 
-int effective_addr_base(char *dst, uint8_t r_m) {
+static int effective_addr_base(char *dst, uint8_t r_m) {
     switch(r_m) {
         case 0x00: return sprintf(dst, "%s + %s", wordRegs[REG_BX], wordRegs[REG_SI]);
         case 0x01: return sprintf(dst, "%s + %s", wordRegs[REG_BX], wordRegs[REG_DI]);
@@ -106,7 +106,7 @@ int effective_addr_base(char *dst, uint8_t r_m) {
     }
 }
 
-Opcode_Err resolve_mem_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m) {
+static Opcode_Err resolve_mem_addr(char **dst, BinFileReader *reader, uint8_t mod, uint8_t r_m) {
     *(*dst)++ = '[';
 
     if(mod == 0x00 && r_m == 0x06) {
@@ -181,7 +181,7 @@ static inline Opcode_Err resolve_immediate_val(char **dst, BinFileReader *reader
 /* -------------------- GENERALIZED OPCODES ---------------------- */
 
 // OP register/memory to/from register
-Opcode_Err op_rm_tf_reg(const char *op, FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err op_rm_tf_reg(const char *op, FILE *out, BinFileReader *reader, uint8_t cmd) {
     char srcBuf[MAX_ARG_LEN], dstBuf[MAX_ARG_LEN];
 
     bool d, w;
@@ -204,7 +204,7 @@ Opcode_Err op_rm_tf_reg(const char *op, FILE *out, BinFileReader *reader, uint8_
 }
 
 // OP immediate to register/memory
-Opcode_Err op_imm_to_rm(const char *op, FILE *out, BinFileReader *reader, uint8_t mod, uint8_t r_m, bool s, bool w) {
+static Opcode_Err op_imm_to_rm(const char *op, FILE *out, BinFileReader *reader, uint8_t mod, uint8_t r_m, bool s, bool w) {
     char srcBuf[MAX_ARG_LEN], dstBuf[MAX_ARG_LEN];
     char *immArg = srcBuf, *r_mArg = dstBuf;
 
@@ -222,7 +222,7 @@ Opcode_Err op_imm_to_rm(const char *op, FILE *out, BinFileReader *reader, uint8_
     return Opcode_Err_OK;
 }
 
-Opcode_Err op_imm_to_acc(const char *op, FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err op_imm_to_acc(const char *op, FILE *out, BinFileReader *reader, uint8_t cmd) {
     char immBuf[MAX_ARG_LEN];
     char *immArg = immBuf;
 
@@ -250,12 +250,12 @@ static inline const char *arith_op_name(uint8_t cmd) {
 }
 
 // ARITH register/memory with register to either
-Opcode_Err arith_rm_tf_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err arith_rm_tf_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
     return op_rm_tf_reg(arith_op_name(cmd), out, reader, cmd);
 }
 
 // ARITH immediate to register/memory
-Opcode_Err arith_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err arith_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
     bool s, w;
     PARSE_DS_W(cmd, s, w);
 
@@ -266,19 +266,19 @@ Opcode_Err arith_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
 }
 
 // ARITH immediate to accumulator
-Opcode_Err arith_imm_to_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err arith_imm_to_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
     return op_imm_to_acc(arith_op_name(cmd), out, reader, cmd);
 }
 
 /* ------- MOV ------- */
 
 // MOV register/memory to/from register
-Opcode_Err mov_rm_tf_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err mov_rm_tf_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
     return op_rm_tf_reg("mov", out, reader, cmd);
 }
 
 // MOV immediate to register/memory
-Opcode_Err mov_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err mov_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
     bool w = cmd & 1;
 
     uint8_t mod, reg, r_m;
@@ -292,7 +292,7 @@ Opcode_Err mov_imm_to_rm(FILE *out, BinFileReader *reader, uint8_t cmd) {
 }
 
 // MOV immediate to register
-Opcode_Err mov_imm_to_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err mov_imm_to_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
     char srcBuf[MAX_ARG_LEN], dstBuf[MAX_ARG_LEN];
     char *immArg = srcBuf, *regArg = dstBuf;
 
@@ -310,7 +310,7 @@ Opcode_Err mov_imm_to_reg(FILE *out, BinFileReader *reader, uint8_t cmd) {
 }
 
 // MOV memory to/from accumulator
-Opcode_Err mov_mem_tf_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
+static Opcode_Err mov_mem_tf_acc(FILE *out, BinFileReader *reader, uint8_t cmd) {
     char addrBuf[MAX_ARG_LEN];
     char *addrArg = addrBuf;
 
@@ -375,6 +375,8 @@ Opcode opcodes[OPCODE_COUNT] = {
 
 #undef MAX_ARG_LEN
 #undef CHECK_ERR
+#undef PARSE_DS_W
+#undef PARSE_MOD_REG_RM
 #undef READ_BYTE
 #undef READ_WORD
 #undef READ_MOD_REG_RM
