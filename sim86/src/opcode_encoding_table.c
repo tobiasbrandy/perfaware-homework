@@ -1,13 +1,28 @@
-#include "opcode_encoding.table.h"
+#include "opcode_encoding_table.h"
 
-static OpcodeEncoding table[] = {
-#include "opcode_encoding_table.inl"
+static const OpcodeEncoding table[] = {
+    #include "opcode_encoding_table.inl"
 };
+static const size_t tableSize = sizeof(table) / sizeof(*table);
 
-OpcodeEncodingTable OpcodeEncodingTable_create() {
+OpcodeEncodingTable OpcodeEncodingTable_get(void) {
     OpcodeEncodingTable ret = {
-        .size = sizeof(table) / sizeof(*table),
-        .table = table,
+            .size = sizeof(table) / sizeof(*table),
+            .table = table,
     };
     return ret;
+}
+
+const OpcodeEncoding *opcode_encoding_find(const uint8_t *codeStart, const uint8_t *codeEnd) {
+    for(size_t i = 0; i < tableSize; ++i) {
+        int err = OpcodeEncoding_decode(&table[i], NULL, codeStart, codeEnd);
+        if(err >= 0) {
+            return &table[i];
+        }
+        if(err != OpcodeDecodeErr_NOT_COMPAT) {
+            return NULL;
+        }
+    }
+
+    return NULL;
 }

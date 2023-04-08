@@ -1,7 +1,9 @@
-#ifndef PERFAWARE_OPCODE_ENCODING_TABLE_H
-#define PERFAWARE_OPCODE_ENCODING_TABLE_H
+#ifndef SIM86_OPCODE_ENCODING_H
+#define SIM86_OPCODE_ENCODING_H
 
 #include <stdint.h>
+
+#include "opcode.h"
 
 #define MAX_ENC_FIELDS 16
 
@@ -31,6 +33,7 @@ typedef enum {
     OpcodeEncFieldType_DISP,
     OpcodeEncFieldType_DATA,
     OpcodeEncFieldType_IPINC8,
+    OpcodeEncFieldType_IPINC16,
 
     OpcodeEncFieldType_DATA_IF_W,
 
@@ -48,11 +51,13 @@ typedef struct {
     OpcodeEncField fields[MAX_ENC_FIELDS];
 } OpcodeEncoding;
 
-typedef struct {
-    uint16_t size;
-    const OpcodeEncoding *table;
-} OpcodeEncodingTable;
+typedef enum {
+    OpcodeDecodeErr_OK          =  0,
+    OpcodeDecodeErr_NOT_COMPAT  = -1, // Encoding and code are not compatible
+    OpcodeDecodeErr_END         = -2, // Decoder reached end before decoding finished
+    OpcodeDecodeErr_INVALID     = -3, // OpcodeEncoding is invalid
+} OpcodeDecodeErr;
 
-OpcodeEncodingTable OpcodeEncodingTable_create();
+int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const uint8_t code[], const uint8_t codeEnd[]);
 
-#endif //PERFAWARE_OPCODE_ENCODING_TABLE_H
+#endif //SIM86_OPCODE_ENCODING_H

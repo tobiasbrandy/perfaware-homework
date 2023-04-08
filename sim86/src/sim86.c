@@ -3,58 +3,45 @@
 #include <string.h>
 #include <errno.h>
 
-#include "bin_file_reader.h"
-#include "opcodes.h"
+#include "memory.h"
+#include "opcode_encoding.h"
+#include "opcode_encoding_table.h"
+#include "opcode_decompile.h"
 
-#define BUF_SIZE 64
-static uint8_t buf[BUF_SIZE];
-
-static void print_opcode_error(Opcode_Err err) {
+static void print_opcode_decoding_error(const OpcodeDecodeErr err) {
     switch(err) {
-        case Opcode_Err_OK: {
-            // No error
-            break;
-        }
-        case Opcode_Err_EOF: {
-            fprintf(stderr, "sim86: error: Source file ended mid command\n");
-            break;
-        }
-        case Opcode_Err_FILE_ERR: {
-            fprintf(stderr, "sim86: error: Failure while reading source file mid command\n");
-            break;
-        }
-        case Opcode_Err_INVALID_ARG: {
-            fprintf(stderr, "sim86: error: Invalid command argument in source file\n");
-            break;
-        }
-        case Opcode_Err_UNREACHABLE: {
-            fprintf(stderr, "sim86: panic: Unreachable code executed\n");
-            abort();
-        }
+        case OpcodeDecodeErr_OK: break; // No error
+        case OpcodeDecodeErr_NOT_COMPAT: {
+            fprintf(stderr, "sim86: error: Opcode encoding used was not compatible with the actual code\n");
+        } break;
+        case OpcodeDecodeErr_END: {
+            fprintf(stderr, "sim86: error: Code ended in the middle of an opcode\n");
+        } break;
+        case OpcodeDecodeErr_INVALID: {
+            fprintf(stderr, "sim86: error: Invalid opcode code for encoding\n");
+        } break;
     }
 }
 
-static int disassemble86(FILE *out, BinFileReader *reader) {
+static int decompile86(FILE *out, const uint8_t *codeStart, const uint8_t *codeEnd) {
     fprintf(out, "bits 16\n\n");
 
-    uint8_t *opcode;
-    while((opcode = BinFileReader_read_bytes(reader, 1)) != NULL) {
-        Opcode opcodeF = opcodes[*opcode];
-        if(opcodeF == NULL) {
-            fprintf(stderr, "sim86: error: Unknown opcode '%#010x'\n", *opcode);
+    for(const uint8_t *codePtr = codeStart; codePtr < codeEnd; ) {
+        const OpcodeEncoding *encoding = opcode_encoding_find(codePtr, codeEnd);
+        if(encoding == NULL) {
+            fprintf(stderr, "sim86: error: Unknown opcode '%#04x'\n", *codePtr);
             return EXIT_FAILURE;
         }
 
-        Opcode_Err opcodeErr = opcodeF(out, reader, *opcode);
-        if(opcodeErr) {
-            print_opcode_error(opcodeErr);
+        Opcode opcode;
+        const int sizeOrErr = OpcodeEncoding_decode(encoding, &opcode, codePtr, codeEnd);
+        if(sizeOrErr < 0) {
+            print_opcode_decoding_error((OpcodeDecodeErr) sizeOrErr);
             return EXIT_FAILURE;
         }
-    }
 
-    if(BinFileReader_status(reader) == BinFileReader_Status_ERROR) {
-        fprintf(stderr, "sim86: error: Failure while reading source file\n");
-        return EXIT_FAILURE;
+        decompile_opcode(&opcode, out);
+        codePtr += sizeOrErr;
     }
 
     return EXIT_SUCCESS;
@@ -69,18 +56,23 @@ int main(int argc, const char *argv[]) {
 
     const char *srcFile = argv[1];
 
+    Memory memory = Memory_create();
+
     FILE *file = fopen(srcFile, "rb");
     if(file == NULL) {
         fprintf(stderr, "sim86: error: open '%s': %s\n", srcFile, strerror(errno));
         return EXIT_FAILURE;
     }
 
-    FILE *out = stdout;
-    BinFileReader reader = BinFileReader_create(file, buf, BUF_SIZE);
-
-    int ret = disassemble86(out, &reader);
+    const int codeLen = Memory_load_code(&memory, file);
+    if(codeLen == -1) {
+        fprintf(stderr, "sim86: error: failed to read '%s' source file\n", srcFile);
+        return EXIT_FAILURE;
+    }
 
     fclose(file);
+
+    const int ret = decompile86(stdout, memory.ram, memory.ram + codeLen);
 
     return ret;
 }
