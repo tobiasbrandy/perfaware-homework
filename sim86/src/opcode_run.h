@@ -4,6 +4,6 @@
 #include "opcode.h"
 #include "memory.h"
 
-void simulate_run(const Opcode *opcode, Memory *memory);
+void simulate_run(const Opcode *opcode, Memory *memory, FILE *trace);
 
 #endif //SIM86_OPCODE_SIMULATE_H

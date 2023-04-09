@@ -36,7 +36,7 @@ static bool for_each_opcode(Opcode *opcode, const uint8_t **codePtr, const uint8
 
     const OpcodeEncoding *encoding = opcode_encoding_find(*codePtr, codeEnd);
     if(encoding == NULL) {
-        fprintf(stderr, "sim86: error: Unknown opcode '%#04x'\n", **codePtr);
+        fprintf(stderr, "sim86: error: Unknown opcode '0x%02x'\n", **codePtr);
         exit(EXIT_FAILURE);
     }
 
@@ -55,7 +55,8 @@ static void decompile86(FILE *out, const uint8_t *codeStart, const uint8_t *code
 
     Opcode opcode;
     for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
-        decompile_opcode(&opcode, out);
+        decompile_opcode_to_file(&opcode, out);
+        fputc('\n', out);
     }
 }
 
@@ -65,9 +66,36 @@ static void run86(Memory *memory, const uint8_t *codeEnd, FILE *trace) {
     Opcode opcode;
     for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
         if(trace) {
-            decompile_opcode(&opcode, trace);
+            decompile_opcode_to_file(&opcode, trace);
+            fputs(" ; ", trace);
         }
-        simulate_run(&opcode, memory);
+        simulate_run(&opcode, memory, trace);
+        if(trace) {
+            fputs(" \n", trace);
+        }
+    }
+
+    if(trace) {
+        const uint16_t *regs = memory->registers;
+        fprintf(trace, "\n"
+            "Final registers:\n"
+            "      ax: 0x%04x (%d)\n"
+            "      bx: 0x%04x (%d)\n"
+            "      cx: 0x%04x (%d)\n"
+            "      dx: 0x%04x (%d)\n"
+            "      sp: 0x%04x (%d)\n"
+            "      bp: 0x%04x (%d)\n"
+            "      si: 0x%04x (%d)\n"
+            "      di: 0x%04x (%d)\n",
+            regs[Register_AX], regs[Register_AX],
+            regs[Register_BX], regs[Register_BX],
+            regs[Register_CX], regs[Register_CX],
+            regs[Register_DX], regs[Register_DX],
+            regs[Register_SP], regs[Register_SP],
+            regs[Register_BP], regs[Register_BP],
+            regs[Register_SI], regs[Register_SI],
+            regs[Register_DI], regs[Register_DI]
+        );
     }
 }
 
