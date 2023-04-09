@@ -5,6 +5,8 @@ static uint8_t ram[RAM_SIZE];
 Memory Memory_create(void) {
     Memory ret = {
             .ram = ram,
+            .registers = {0},
+            .flags = {0},
     };
     return ret;
 }

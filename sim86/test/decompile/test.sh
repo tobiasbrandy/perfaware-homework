@@ -3,7 +3,7 @@
 for ASM_PATH in "$@"
 do
   nasm "$ASM_PATH" -o "test_asm_diff_nasm.out"
-  ./dev/sim86 "test_asm_diff_nasm.out" > "test_asm_diff_sim86.asm"
+  ./dev/sim86 "decompile" "test_asm_diff_nasm.out" > "test_asm_diff_sim86.asm"
   nasm "test_asm_diff_sim86.asm" -o "test_asm_diff_sim86.out"
 
   cmp -s "test_asm_diff_nasm.out" "test_asm_diff_sim86.out"

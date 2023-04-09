@@ -7,6 +7,12 @@
 #include "opcode_encoding.h"
 #include "opcode_encoding_table.h"
 #include "opcode_decompile.h"
+#include "opcode_run.h"
+
+static void print_usage(void) {
+    fprintf(stderr, "Usage: sim86 <cmd> <src_file>\n");
+    fprintf(stderr, "Available commands: decompile, run, trace\n");
+}
 
 static void print_opcode_decoding_error(const OpcodeDecodeErr err) {
     switch(err) {
@@ -23,38 +29,62 @@ static void print_opcode_decoding_error(const OpcodeDecodeErr err) {
     }
 }
 
-static int decompile86(FILE *out, const uint8_t *codeStart, const uint8_t *codeEnd) {
-    fprintf(out, "bits 16\n\n");
-
-    for(const uint8_t *codePtr = codeStart; codePtr < codeEnd; ) {
-        const OpcodeEncoding *encoding = opcode_encoding_find(codePtr, codeEnd);
-        if(encoding == NULL) {
-            fprintf(stderr, "sim86: error: Unknown opcode '%#04x'\n", *codePtr);
-            return EXIT_FAILURE;
-        }
-
-        Opcode opcode;
-        const int sizeOrErr = OpcodeEncoding_decode(encoding, &opcode, codePtr, codeEnd);
-        if(sizeOrErr < 0) {
-            print_opcode_decoding_error((OpcodeDecodeErr) sizeOrErr);
-            return EXIT_FAILURE;
-        }
-
-        decompile_opcode(&opcode, out);
-        codePtr += sizeOrErr;
+static bool for_each_opcode(Opcode *opcode, const uint8_t **codePtr, const uint8_t *codeEnd) {
+    if(*codePtr == codeEnd) {
+        return false;
     }
 
-    return EXIT_SUCCESS;
+    const OpcodeEncoding *encoding = opcode_encoding_find(*codePtr, codeEnd);
+    if(encoding == NULL) {
+        fprintf(stderr, "sim86: error: Unknown opcode '%#04x'\n", **codePtr);
+        exit(EXIT_FAILURE);
+    }
+
+    const int sizeOrErr = OpcodeEncoding_decode(encoding, opcode, *codePtr, codeEnd);
+    if(sizeOrErr < 0) {
+        print_opcode_decoding_error((OpcodeDecodeErr) sizeOrErr);
+        exit(EXIT_FAILURE);
+    }
+
+    *codePtr += sizeOrErr;
+    return true;
+}
+
+static void decompile86(FILE *out, const uint8_t *codeStart, const uint8_t *codeEnd) {
+    fprintf(out, "bits 16\n\n");
+
+    Opcode opcode;
+    for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
+        decompile_opcode(&opcode, out);
+    }
+}
+
+static void run86(Memory *memory, const uint8_t *codeEnd, FILE *trace) {
+    const uint8_t *codeStart = memory->ram;
+
+    Opcode opcode;
+    for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
+        if(trace) {
+            decompile_opcode(&opcode, trace);
+        }
+        simulate_run(&opcode, memory);
+    }
 }
 
 int main(int argc, const char *argv[]) {
     if(argc < 2) {
-        fprintf(stderr, "sim86: error: Missing source file path to disassemble\n");
-        fprintf(stderr, "Usage: sim86 <src_file>\n");
+        fprintf(stderr, "sim86: error: Missing command and source file path\n");
+        print_usage();
+        return EXIT_FAILURE;
+    }
+    if(argc < 3) {
+        fprintf(stderr, "sim86: error: Missing source file path\n");
+        print_usage();
         return EXIT_FAILURE;
     }
 
-    const char *srcFile = argv[1];
+    const char *cmd = argv[1];
+    const char *srcFile = argv[2];
 
     Memory memory = Memory_create();
 
@@ -72,7 +102,15 @@ int main(int argc, const char *argv[]) {
 
     fclose(file);
 
-    const int ret = decompile86(stdout, memory.ram, memory.ram + codeLen);
+    const uint8_t *codeEnd = memory.ram + codeLen;
 
-    return ret;
+    if(!strcmp(cmd, "decompile"))   decompile86(stdout, memory.ram, codeEnd);
+    else if(!strcmp(cmd, "run"))    run86(&memory, codeEnd, NULL);
+    else if(!strcmp(cmd, "trace"))  run86(&memory, codeEnd, stdout);
+    else {
+        fprintf(stderr, "sim86: error: unknown command '%s'\n", cmd);
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

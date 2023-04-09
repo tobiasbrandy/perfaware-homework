@@ -70,8 +70,15 @@ debug: $(TARGET_DEBUG)
 dev: $(TARGET_DEV)
 
 .PHONY: test
-test: dev
-	./asm_diff.sh tests/*.asm
+test: test_decompile test_run
+
+.PHONY: test_decompile
+test_decompile: dev
+	./test/decompile/test.sh test/decompile/*.asm
+
+.PHONY: test_run
+test_run: dev
+	./test/run/test.sh test/run/*.asm
 
 .PHONY: clean
 clean:
