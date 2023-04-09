@@ -3,10 +3,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-#define MAX_NAME_LEN 10 // Example: SEGMENT
-#define MAX_ARG_LEN 30  // Example: `word [bp + di - 10044]\0`
-
-static int decompile_opcode_type(char *dst, const OpcodeType type) {
+int decompile_opcode_type(char *dst, const OpcodeType type) {
     static const char *nameTable[] = {
 #define OPCODE(name, ...) [OpcodeType_##name] = #name,
 #define SUB_OP(...)
@@ -23,7 +20,7 @@ static int decompile_opcode_type(char *dst, const OpcodeType type) {
     return i;
 }
 
-static int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAccess) {
+int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAccess) {
     static const char *regs[Register_COUNT] = {
             [Register_AX] = "a",
             [Register_BX] = "b",
@@ -45,7 +42,7 @@ static int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAcce
     }
 }
 
-static int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess) {
+int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess) {
     const char *ogDst = dst;
     const OpcodeAddrRegTerm *terms = memAccess->terms;
     const int16_t displacement = memAccess->displacement;
@@ -77,7 +74,7 @@ static int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAcce
     return (int) (dst - ogDst);
 }
 
-static const char *decompile_reg_size(const RegSize regSize) {
+const char *decompile_reg_size(const RegSize regSize) {
     switch(regSize) {
         case RegSize_NONE: return "";
         case RegSize_BYTE: return "byte";
@@ -86,13 +83,13 @@ static const char *decompile_reg_size(const RegSize regSize) {
     return "";
 }
 
-static int decompile_opcode_imm_access(char *dst, const OpcodeImmAccess *immAccess, const bool explicitSize) {
+int decompile_opcode_imm_access(char *dst, const OpcodeImmAccess *immAccess, const bool explicitSize) {
     const char *size = explicitSize ? decompile_reg_size(immAccess->size) : "";
     const char *ws = explicitSize ? " " : "";
     return sprintf(dst, "%s%s%d", size, ws, immAccess->value);
 }
 
-static int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipincAccess) {
+int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipincAccess) {
     // ipinc = increment after jmp instruction
     const int ipinc = ipincAccess->value + 2;
 
@@ -103,7 +100,7 @@ static int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipinc
     }
 }
 
-static int decompile_opcode_arg(char *dst, const OpcodeArg *arg, const bool explicitSize) {
+int decompile_opcode_arg(char *dst, const OpcodeArg *arg, const bool explicitSize) {
     switch(arg->type) {
         case OpcodeArgType_NONE: return 0;
         case OpcodeArgType_REGISTER: return decompile_opcode_reg_access(dst, &arg->reg);
@@ -114,28 +111,36 @@ static int decompile_opcode_arg(char *dst, const OpcodeArg *arg, const bool expl
     }
 }
 
-void decompile_opcode(const Opcode *opcode, FILE *out) {
+int decompile_opcode(char *dst, const Opcode *opcode) {
+    char *ogDst = dst;
+
     const bool explicitSize =
             (opcode->dst.type == OpcodeArgType_MEMORY && opcode->src.type == OpcodeArgType_IMMEDIATE)
             || (opcode->src.type == OpcodeArgType_MEMORY && opcode->dst.type == OpcodeArgType_IMMEDIATE)
     ;
 
-    char nameBuf[MAX_NAME_LEN];
-    decompile_opcode_type(nameBuf, opcode->type);
+    dst += decompile_opcode_type(dst, opcode->type);
 
-    char dstBuf[MAX_ARG_LEN];
-    const bool hasDst = decompile_opcode_arg(dstBuf, &opcode->dst, explicitSize);
-
-    char srcBuf[MAX_ARG_LEN];
-    const bool hasSrc = decompile_opcode_arg(srcBuf, &opcode->src, explicitSize);
-
-    if(hasDst && hasSrc) {
-        fprintf(out, "%s %s, %s\n", nameBuf, dstBuf, srcBuf);
-    } else if(hasDst) {
-        fprintf(out, "%s %s\n", nameBuf, dstBuf);
-    } else {
-        fprintf(out, "%s\n", nameBuf);
+    if(opcode->dst.type != OpcodeArgType_NONE) {
+        *dst++ = ' ';
+        dst += decompile_opcode_arg(dst, &opcode->dst, explicitSize);
     }
+
+    if(opcode->src.type != OpcodeArgType_NONE) {
+        *dst++ = ',';
+        *dst++ = ' ';
+        dst += decompile_opcode_arg(dst, &opcode->src, explicitSize);
+    }
+
+    *dst = 0;
+
+    return (int) (dst - ogDst);
+}
+
+void decompile_opcode_to_file(const Opcode *opcode, FILE *out) {
+    char buf[MAX_OP_LEN + 1];
+    decompile_opcode(buf, opcode);
+    fputs(buf, out);
 }
 
 #undef MAX_ARG_LEN
