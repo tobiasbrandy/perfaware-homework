@@ -71,7 +71,7 @@ static void run86(Memory *memory, const uint8_t *codeEnd, FILE *trace) {
         }
         simulate_run(&opcode, memory, trace);
         if(trace) {
-            fputs(" \n", trace);
+            fputc('\n', trace);
         }
     }
 
