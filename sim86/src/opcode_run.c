@@ -92,7 +92,7 @@ static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, con
 static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data, FILE *trace) {
     if(trace) {
         char opArg[MAX_OP_ARG_LEN + 1];
-        decompile_opcode_arg(opArg, arg, false);
+        OpcodeArg_decompile(arg, false, opArg);
         fprintf(trace, "%s:0x%x->0x%x", opArg, get_arg_data(arg, memory), data);
     }
 
@@ -236,7 +236,7 @@ static void JCXZ(const Opcode *opcode, Memory *memory, FILE *trace) {
     // TODO
 }
 
-void simulate_run(const Opcode *opcode, Memory *memory, FILE *trace) {
+void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
     static OpcodeF ops[OpcodeType_COUNT] = {
             [OpcodeType_NONE] = NONE,
 

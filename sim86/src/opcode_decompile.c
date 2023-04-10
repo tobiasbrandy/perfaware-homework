@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-int decompile_opcode_type(char *dst, const OpcodeType type) {
+int OpcodeType_decompile(OpcodeType type, char *dst) {
     static const char *nameTable[] = {
 #define OPCODE(name, ...) [OpcodeType_##name] = #name,
 #define SUB_OP(...)
@@ -20,7 +20,7 @@ int decompile_opcode_type(char *dst, const OpcodeType type) {
     return i;
 }
 
-int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAccess) {
+int OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess, char *dst) {
     static const char *regs[Register_COUNT] = {
             [Register_AX] = "a",
             [Register_BX] = "b",
@@ -42,7 +42,7 @@ int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAccess) {
     }
 }
 
-int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess) {
+int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst) {
     const char *ogDst = dst;
     const OpcodeAddrRegTerm *terms = memAccess->terms;
     const int16_t displacement = memAccess->displacement;
@@ -50,12 +50,12 @@ int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess) {
     *dst++ = '[';
 
     if(terms[0].present) {
-        dst += decompile_opcode_reg_access(dst, &memAccess->terms[0].reg);
+        dst += OpcodeRegAccess_decompile(&memAccess->terms[0].reg, dst);
     }
 
     if(terms[1].present) {
         dst += sprintf(dst, " + ");
-        dst += decompile_opcode_reg_access(dst, &memAccess->terms[1].reg);
+        dst += OpcodeRegAccess_decompile(&memAccess->terms[1].reg, dst);
     }
 
     if(displacement) {
@@ -74,7 +74,7 @@ int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess) {
     return (int) (dst - ogDst);
 }
 
-const char *decompile_reg_size(const RegSize regSize) {
+const char *RegSize_decompile(RegSize regSize) {
     switch(regSize) {
         case RegSize_NONE: return "";
         case RegSize_BYTE: return "byte";
@@ -83,13 +83,13 @@ const char *decompile_reg_size(const RegSize regSize) {
     return "";
 }
 
-int decompile_opcode_imm_access(char *dst, const OpcodeImmAccess *immAccess, const bool explicitSize) {
-    const char *size = explicitSize ? decompile_reg_size(immAccess->size) : "";
+int OpcodeImmAccess_decompile(const OpcodeImmAccess *immAccess, bool explicitSize, char *dst) {
+    const char *size = explicitSize ? RegSize_decompile(immAccess->size) : "";
     const char *ws = explicitSize ? " " : "";
     return sprintf(dst, "%s%s%d", size, ws, immAccess->value);
 }
 
-int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipincAccess) {
+int OpcodeIpincAccess_decompile(const OpcodeImmAccess *ipincAccess, char *dst) {
     // ipinc = increment after jmp instruction
     const int ipinc = ipincAccess->value + 2;
 
@@ -100,18 +100,18 @@ int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipincAccess)
     }
 }
 
-int decompile_opcode_arg(char *dst, const OpcodeArg *arg, const bool explicitSize) {
+int OpcodeArg_decompile(const OpcodeArg *arg, bool explicitSize, char *dst) {
     switch(arg->type) {
         case OpcodeArgType_NONE: return 0;
-        case OpcodeArgType_REGISTER: return decompile_opcode_reg_access(dst, &arg->reg);
-        case OpcodeArgType_MEMORY: return decompile_opcode_mem_access(dst, &arg->mem);
-        case OpcodeArgType_IMMEDIATE: return decompile_opcode_imm_access(dst, &arg->imm, explicitSize);
-        case OpcodeArgType_IPINC: return decompile_opcode_ipinc_access(dst, &arg->ipinc);
+        case OpcodeArgType_REGISTER: return OpcodeRegAccess_decompile(&arg->reg, dst);
+        case OpcodeArgType_MEMORY: return OpcodeMemAccess_decompile(&arg->mem, dst);
+        case OpcodeArgType_IMMEDIATE: return OpcodeImmAccess_decompile(&arg->imm, explicitSize, dst);
+        case OpcodeArgType_IPINC: return OpcodeIpincAccess_decompile(&arg->ipinc, dst);
         default: assert(false);
     }
 }
 
-int decompile_opcode(char *dst, const Opcode *opcode) {
+int Opcode_decompile(const Opcode *opcode, char *dst) {
     char *ogDst = dst;
 
     const bool explicitSize =
@@ -119,17 +119,17 @@ int decompile_opcode(char *dst, const Opcode *opcode) {
             || (opcode->src.type == OpcodeArgType_MEMORY && opcode->dst.type == OpcodeArgType_IMMEDIATE)
     ;
 
-    dst += decompile_opcode_type(dst, opcode->type);
+    dst += OpcodeType_decompile(opcode->type, dst);
 
     if(opcode->dst.type != OpcodeArgType_NONE) {
         *dst++ = ' ';
-        dst += decompile_opcode_arg(dst, &opcode->dst, explicitSize);
+        dst += OpcodeArg_decompile(&opcode->dst, explicitSize, dst);
     }
 
     if(opcode->src.type != OpcodeArgType_NONE) {
         *dst++ = ',';
         *dst++ = ' ';
-        dst += decompile_opcode_arg(dst, &opcode->src, explicitSize);
+        dst += OpcodeArg_decompile(&opcode->src, explicitSize, dst);
     }
 
     *dst = 0;
@@ -137,9 +137,9 @@ int decompile_opcode(char *dst, const Opcode *opcode) {
     return (int) (dst - ogDst);
 }
 
-void decompile_opcode_to_file(const Opcode *opcode, FILE *out) {
+void Opcode_decompile_to_file(const Opcode *opcode, FILE *out) {
     char buf[MAX_OP_LEN + 1];
-    decompile_opcode(buf, opcode);
+    Opcode_decompile(opcode, buf);
     fputs(buf, out);
 }
 

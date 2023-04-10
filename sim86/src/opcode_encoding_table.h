@@ -12,6 +12,6 @@ typedef struct {
 
 OpcodeEncodingTable OpcodeEncodingTable_get(void);
 
-const OpcodeEncoding *opcode_encoding_find(const uint8_t *codeStart, const uint8_t *codeEnd);
+const OpcodeEncoding *OpcodeEncoding_find(const uint8_t *codeStart, const uint8_t *codeEnd);
 
 #endif //SIM86_OPCODE_ENCODING_TABLE_H

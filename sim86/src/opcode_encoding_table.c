@@ -13,7 +13,7 @@ OpcodeEncodingTable OpcodeEncodingTable_get(void) {
     return ret;
 }
 
-const OpcodeEncoding *opcode_encoding_find(const uint8_t *codeStart, const uint8_t *codeEnd) {
+const OpcodeEncoding *OpcodeEncoding_find(const uint8_t *codeStart, const uint8_t *codeEnd) {
     for(size_t i = 0; i < tableSize; ++i) {
         int err = OpcodeEncoding_decode(&table[i], NULL, codeStart, codeEnd);
         if(err >= 0) {

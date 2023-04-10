@@ -29,47 +29,48 @@ static void print_opcode_decoding_error(const OpcodeDecodeErr err) {
     }
 }
 
-static bool for_each_opcode(Opcode *opcode, const uint8_t **codePtr, const uint8_t *codeEnd) {
-    if(*codePtr == codeEnd) {
+static bool next_opcode(Opcode *opcode, Memory *mem) {
+    if(Memory_code_ended(mem)) {
         return false;
     }
 
-    const OpcodeEncoding *encoding = opcode_encoding_find(*codePtr, codeEnd);
+    const uint8_t *codePtr = Memory_code_ptr(mem);
+    const uint8_t *codeEnd = mem->codeEnd;
+
+    const OpcodeEncoding *encoding = OpcodeEncoding_find(codePtr, codeEnd);
     if(encoding == NULL) {
-        fprintf(stderr, "sim86: error: Unknown opcode '0x%02x'\n", **codePtr);
+        fprintf(stderr, "sim86: error: Unknown opcode '0x%02x'\n", *codePtr);
         exit(EXIT_FAILURE);
     }
 
-    const int sizeOrErr = OpcodeEncoding_decode(encoding, opcode, *codePtr, codeEnd);
+    const int sizeOrErr = OpcodeEncoding_decode(encoding, opcode, codePtr, codeEnd);
     if(sizeOrErr < 0) {
         print_opcode_decoding_error((OpcodeDecodeErr) sizeOrErr);
         exit(EXIT_FAILURE);
     }
 
-    *codePtr += sizeOrErr;
+    mem->registers[Register_IP] += sizeOrErr;
     return true;
 }
 
-static void decompile86(FILE *out, const uint8_t *codeStart, const uint8_t *codeEnd) {
+static void decompile86(Memory *memory, FILE *out) {
     fprintf(out, "bits 16\n\n");
 
-    Opcode opcode;
-    for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
-        decompile_opcode_to_file(&opcode, out);
+    for(Opcode opcode; next_opcode(&opcode, memory); ) {
+        Opcode_decompile_to_file(&opcode, out);
         fputc('\n', out);
     }
 }
 
-static void run86(Memory *memory, const uint8_t *codeEnd, FILE *trace) {
-    const uint8_t *codeStart = memory->ram;
-
-    Opcode opcode;
-    for(const uint8_t **codePtr = &codeStart; for_each_opcode(&opcode, codePtr, codeEnd); ) {
+static void run86(Memory *memory, FILE *trace) {
+    for(Opcode opcode; next_opcode(&opcode, memory); ) {
         if(trace) {
-            decompile_opcode_to_file(&opcode, trace);
+            Opcode_decompile_to_file(&opcode, trace);
             fputs(" ; ", trace);
         }
-        simulate_run(&opcode, memory, trace);
+
+        Opcode_run(&opcode, memory, trace);
+
         if(trace) {
             fputc('\n', trace);
         }
@@ -122,19 +123,16 @@ int main(int argc, const char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    const int codeLen = Memory_load_code(&memory, file);
-    if(codeLen == -1) {
+    if(!Memory_load_code(&memory, file)) {
         fprintf(stderr, "sim86: error: failed to read '%s' source file\n", srcFile);
         return EXIT_FAILURE;
     }
 
     fclose(file);
 
-    const uint8_t *codeEnd = memory.ram + codeLen;
-
-    if(!strcmp(cmd, "decompile"))   decompile86(stdout, memory.ram, codeEnd);
-    else if(!strcmp(cmd, "run"))    run86(&memory, codeEnd, NULL);
-    else if(!strcmp(cmd, "trace"))  run86(&memory, codeEnd, stdout);
+    if(!strcmp(cmd, "decompile"))   decompile86(&memory, stdout);
+    else if(!strcmp(cmd, "run"))    run86(&memory, NULL);
+    else if(!strcmp(cmd, "trace"))  run86(&memory, stdout);
     else {
         fprintf(stderr, "sim86: error: unknown command '%s'\n", cmd);
         return EXIT_FAILURE;

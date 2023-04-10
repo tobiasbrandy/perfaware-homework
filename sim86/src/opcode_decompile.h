@@ -10,22 +10,22 @@
 #define MAX_OP_ARG_LEN 30  // Example: `word [bp + di - 10044]\0`
 #define MAX_OP_LEN (MAX_OP_NAME_LEN + 2*MAX_OP_ARG_LEN)
 
-int decompile_opcode_type(char *dst, OpcodeType type);
+int OpcodeType_decompile(OpcodeType type, char *dst);
 
-int decompile_opcode_reg_access(char *dst, const OpcodeRegAccess *regAccess);
+int OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess, char *dst);
 
-int decompile_opcode_mem_access(char *dst, const OpcodeMemAccess *memAccess);
+int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst);
 
-const char *decompile_reg_size(RegSize regSize);
+const char *RegSize_decompile(RegSize regSize);
 
-int decompile_opcode_imm_access(char *dst, const OpcodeImmAccess *immAccess, bool explicitSize);
+int OpcodeImmAccess_decompile(const OpcodeImmAccess *immAccess, bool explicitSize, char *dst);
 
-int decompile_opcode_ipinc_access(char *dst, const OpcodeImmAccess *ipincAccess);
+int OpcodeIpincAccess_decompile(const OpcodeImmAccess *ipincAccess, char *dst);
 
-int decompile_opcode_arg(char *dst, const OpcodeArg *arg, bool explicitSize);
+int OpcodeArg_decompile(const OpcodeArg *arg, bool explicitSize, char *dst);
 
-int decompile_opcode(char *dst, const Opcode *opcode);
+int Opcode_decompile(const Opcode *opcode, char *dst);
 
-void decompile_opcode_to_file(const Opcode *opcode, FILE *out);
+void Opcode_decompile_to_file(const Opcode *opcode, FILE *out);
 
 #endif //SIM86_OPCODE_DECOMPILE_H
