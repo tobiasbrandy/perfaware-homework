@@ -49,7 +49,10 @@ static inline uint32_t mem_effective_addr(const OpcodeMemAccess *access, const M
 }
 
 static inline uint16_t get_memory(const OpcodeMemAccess *access, const Memory *memory) {
-    return memory->ram[mem_effective_addr(access, memory)];
+    // TODO: Make segment selection more robust, depending on opcode
+    const OpcodeAddrRegTerm lTerm = access->terms[0];
+    const Register segmentReg = lTerm.present && lTerm.reg.reg == Register_BP ? Register_SS : Register_DS;
+    return *Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
 }
 
 static inline uint16_t get_immediate(const OpcodeImmAccess *access) {
@@ -70,7 +73,7 @@ static uint16_t get_arg_data(const OpcodeArg *arg, const Memory *memory) {
     assert(false);
 }
 
-static void set_register(const OpcodeRegAccess *access, Memory *memory, const uint16_t data, FILE *trace) {
+static void set_register(const OpcodeRegAccess *access, Memory *memory, const uint16_t data) {
     switch(access->size) {
         case RegSize_BYTE: {
             *reg_ptr_byte(access, memory) = data;
@@ -85,8 +88,11 @@ static void set_register(const OpcodeRegAccess *access, Memory *memory, const ui
     }
 }
 
-static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, const uint16_t data, FILE *trace) {
-    memory->ram[mem_effective_addr(access, memory)] = data;
+static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, const uint16_t data) {
+    // TODO: Make segment selection more robust, depending on opcode
+    const OpcodeAddrRegTerm lTerm = access->terms[0];
+    const Register segmentReg = lTerm.present && lTerm.reg.reg == Register_BP ? Register_SS : Register_DS;
+    *Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory)) = data;
 }
 
 static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data, FILE *trace) {
@@ -97,8 +103,8 @@ static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t da
     }
 
     switch(arg->type) {
-        case OpcodeArgType_REGISTER: set_register(&arg->reg, memory, data, trace); break;
-        case OpcodeArgType_MEMORY: set_memory(&arg->mem, memory, data, trace); break;
+        case OpcodeArgType_REGISTER: set_register(&arg->reg, memory, data); break;
+        case OpcodeArgType_MEMORY: set_memory(&arg->mem, memory, data); break;
         case OpcodeArgType_IMMEDIATE:
         case OpcodeArgType_IPINC: {
             fprintf(stderr, "Invalid memory set on immediate value argument!\n");

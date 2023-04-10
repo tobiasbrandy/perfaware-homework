@@ -28,10 +28,14 @@ typedef struct {
 
 Memory Memory_create(void);
 
-bool Memory_load_code(Memory *mem, FILE *code);
+uint8_t *Memory_segment_ptr(const Memory *mem, Register segmentReg);
 
 const uint8_t *Memory_code_ptr(const Memory *mem);
 
+uint8_t *Memory_addr_ptr(const Memory *mem, Register segmentReg, uint16_t addr);
+
 bool Memory_code_ended(const Memory *mem);
+
+bool Memory_load_code(Memory *mem, FILE *code);
 
 #endif //SIM86_MEMORY_H

@@ -29,16 +29,24 @@ Memory Memory_create(void) {
     return ret;
 }
 
-static inline uint8_t *get_segment(const Memory *mem, const Register segmentReg) {
+inline uint8_t *Memory_segment_ptr(const Memory *mem, const Register segmentReg) {
     return &mem->ram[segmentReg << 4];
 }
 
-const uint8_t *Memory_code_ptr(const Memory *mem) {
-    return get_segment(mem, Register_CS) + mem->registers[Register_IP];
+inline const uint8_t *Memory_code_ptr(const Memory *mem) {
+    return Memory_segment_ptr(mem, Register_CS) + mem->registers[Register_IP];
+}
+
+inline uint8_t *Memory_addr_ptr(const Memory *mem, const Register segmentReg, const uint16_t addr) {
+    return Memory_segment_ptr(mem, segmentReg) + addr;
+}
+
+inline bool Memory_code_ended(const Memory *mem) {
+    return Memory_code_ptr(mem) == mem->codeEnd;
 }
 
 bool Memory_load_code(Memory *mem, FILE *codeSrc) {
-    uint8_t *codeSegment = get_segment(mem, Register_CS);
+    uint8_t *codeSegment = Memory_segment_ptr(mem, Register_CS);
 
     int codeLen = (int) fread(codeSegment, 1, SEGMENT_SIZE, codeSrc);
     if(codeLen < SEGMENT_SIZE && ferror(codeSrc)) {
@@ -47,10 +55,6 @@ bool Memory_load_code(Memory *mem, FILE *codeSrc) {
 
     mem->codeEnd = codeSegment + codeLen;
     return true;
-}
-
-inline bool Memory_code_ended(const Memory *mem) {
-    return Memory_code_ptr(mem) == mem->codeEnd;
 }
 
 #undef INIT_SEGMENT_POS

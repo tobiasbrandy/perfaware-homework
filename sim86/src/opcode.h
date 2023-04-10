@@ -46,7 +46,7 @@ typedef enum {
 } OpcodeType;
 
 typedef struct {
-    uint8_t reg;
+    Register reg;
     RegSize size;
     RegOffset offset;
 } OpcodeRegAccess;
