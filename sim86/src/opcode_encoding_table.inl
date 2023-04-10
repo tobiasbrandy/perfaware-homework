@@ -18,6 +18,7 @@
 #define RM {OpcodeEncFieldType_RM, 3, 0}
 #define MOD {OpcodeEncFieldType_MOD, 2, 0}
 #define REG {OpcodeEncFieldType_REG, 3, 0}
+#define SR {OpcodeEncFieldType_SR, 2, 0}
 
 #define DISP {OpcodeEncFieldType_DISP, 0, 0}
 #define DATA {OpcodeEncFieldType_DATA, 0, 0}
@@ -32,6 +33,8 @@
 #define SET_MOD(value) {OpcodeEncFieldType_MOD, 0, value}
 #define SET_REG(value) {OpcodeEncFieldType_REG, 0, value}
 
+#define BYTE SET_W(0)
+#define WORD SET_W(1)
 #define FROM_REG SET_D(0)
 #define TO_REG SET_D(1)
 #define ACC SET_REG(0)
@@ -42,6 +45,8 @@ SUB_OP(MOV, B(1100011), W, MOD, B(000), RM, DATA, DATA_IF_W, FROM_REG)
 SUB_OP(MOV, B(1011), W, REG, DATA, DATA_IF_W, TO_REG)
 SUB_OP(MOV, B(1010000), W, DISP, DIRECT_ACCESS, TO_REG, ACC)
 SUB_OP(MOV, B(1010001), W, DISP, DIRECT_ACCESS, FROM_REG, ACC)
+SUB_OP(MOV, B(10001110), MOD, B(0), SR, RM, TO_REG, WORD)
+SUB_OP(MOV, B(10001100), MOD, B(0), SR, RM, FROM_REG, WORD)
 
 OPCODE(ADD, B(000000), D, W, MOD, REG, RM)
 SUB_OP(ADD, B(100000), S, W, MOD, B(000), RM, DATA, DATA_IF_W)
@@ -123,7 +128,10 @@ OPCODE(JCXZ,    B(11100011), IPINC8)
 #undef SET_RM
 #undef SET_MOD
 #undef SET_REG
+#undef SR
 
+#undef BYTE
+#undef WORD
 #undef FROM_REG
 #undef TO_REG
 #undef ACC

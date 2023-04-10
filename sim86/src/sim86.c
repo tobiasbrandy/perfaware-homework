@@ -77,26 +77,18 @@ static void run86(Memory *memory, FILE *trace) {
     }
 
     if(trace) {
+        // Full register trace
         const uint16_t *regs = memory->registers;
-        fprintf(trace, "\n"
-            "Final registers:\n"
-            "      ax: 0x%04x (%d)\n"
-            "      bx: 0x%04x (%d)\n"
-            "      cx: 0x%04x (%d)\n"
-            "      dx: 0x%04x (%d)\n"
-            "      sp: 0x%04x (%d)\n"
-            "      bp: 0x%04x (%d)\n"
-            "      si: 0x%04x (%d)\n"
-            "      di: 0x%04x (%d)\n",
-            regs[Register_AX], regs[Register_AX],
-            regs[Register_BX], regs[Register_BX],
-            regs[Register_CX], regs[Register_CX],
-            regs[Register_DX], regs[Register_DX],
-            regs[Register_SP], regs[Register_SP],
-            regs[Register_BP], regs[Register_BP],
-            regs[Register_SI], regs[Register_SI],
-            regs[Register_DI], regs[Register_DI]
-        );
+        OpcodeRegAccess regAccess = {.reg=0, .size=RegSize_WORD, .offset=RegOffset_NONE};
+
+        fprintf(trace, "\nFinal registers:\n");
+        for(Register reg = 0; reg < Register_COUNT; ++reg) {
+            const uint16_t val = regs[reg];
+            if(val && reg != Register_IP) {
+                regAccess.reg = reg;
+                fprintf(trace, "      %s: 0x%04x (%d)\n", OpcodeRegAccess_decompile(&regAccess), val, val);
+            }
+        }
     }
 }
 

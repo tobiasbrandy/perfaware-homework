@@ -12,7 +12,7 @@
 
 int OpcodeType_decompile(OpcodeType type, char *dst);
 
-int OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess, char *dst);
+const char *OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess);
 
 int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst);
 

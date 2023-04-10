@@ -96,10 +96,17 @@ static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, con
 }
 
 static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data, FILE *trace) {
+    // Trace setup
+    OpcodeArg traceArg = *arg;
+    uint16_t ogArgData;
     if(trace) {
-        char opArg[MAX_OP_ARG_LEN + 1];
-        OpcodeArg_decompile(arg, false, opArg);
-        fprintf(trace, "%s:0x%x->0x%x", opArg, get_arg_data(arg, memory), data);
+        if(arg->type == OpcodeArgType_REGISTER) {
+            // We always trace the full register
+            traceArg.reg.size = RegSize_WORD;
+            traceArg.reg.offset = RegOffset_NONE;
+        }
+
+        ogArgData = get_arg_data(&traceArg, memory);
     }
 
     switch(arg->type) {
@@ -114,6 +121,12 @@ static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t da
             fprintf(stderr, "Opcode argument missing!\n");
             abort();
         }
+    }
+
+    if(trace) {
+        char opArg[MAX_OP_ARG_LEN + 1];
+        OpcodeArg_decompile(&traceArg, false, opArg);
+        fprintf(trace, "%s:0x%x->0x%x", opArg, ogArgData, get_arg_data(&traceArg, memory));
     }
 }
 

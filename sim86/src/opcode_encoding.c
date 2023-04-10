@@ -108,7 +108,7 @@ static CodeReaderErr CodeReader_get_bytes_and_advance(CodeReader *reader, const 
 }
 
 static OpcodeRegAccess resolve_reg_access(const uint8_t reg, const bool w) {
-    static const OpcodeRegAccess regTable[][2] = {
+    static const OpcodeRegAccess regTable[8][2] = {
             [0] = {{Register_AX, RegSize_BYTE, RegOffset_LOW }, {Register_AX, RegSize_WORD, RegOffset_NONE}},
             [1] = {{Register_CX, RegSize_BYTE, RegOffset_LOW }, {Register_CX, RegSize_WORD, RegOffset_NONE}},
             [2] = {{Register_DX, RegSize_BYTE, RegOffset_LOW }, {Register_DX, RegSize_WORD, RegOffset_NONE}},
@@ -119,6 +119,16 @@ static OpcodeRegAccess resolve_reg_access(const uint8_t reg, const bool w) {
             [7] = {{Register_BX, RegSize_BYTE, RegOffset_HIGH}, {Register_DI, RegSize_WORD, RegOffset_NONE}},
     };
     return regTable[reg][w];
+}
+
+static OpcodeRegAccess resolve_seg_reg_access(const uint8_t segReg) {
+    static const OpcodeRegAccess regTable[4] = {
+            [0] = {Register_ES, RegSize_WORD, RegOffset_NONE},
+            [1] = {Register_CS, RegSize_WORD, RegOffset_NONE},
+            [2] = {Register_SS, RegSize_WORD, RegOffset_NONE},
+            [3] = {Register_DS, RegSize_WORD, RegOffset_NONE},
+    };
+    return regTable[segReg];
 }
 
 static OpcodeMemAccess resolve_mem_access(const uint8_t rm, const int16_t displacement, bool directAccess) {
@@ -249,6 +259,11 @@ int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const 
     if(hasField[OpcodeEncFieldType_REG]) {
         regArg->type = OpcodeArgType_REGISTER;
         regArg->reg = resolve_reg_access(FIELD(REG), w);
+    }
+
+    if(hasField[OpcodeEncFieldType_SR]) {
+        regArg->type = OpcodeArgType_REGISTER;
+        regArg->reg = resolve_seg_reg_access(FIELD(SR));
     }
 
     if(hasField[OpcodeEncFieldType_MOD]) {

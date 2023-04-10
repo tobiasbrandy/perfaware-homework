@@ -29,6 +29,7 @@ typedef enum {
     OpcodeEncFieldType_MOD,
     OpcodeEncFieldType_REG,
     OpcodeEncFieldType_RM,
+    OpcodeEncFieldType_SR,
 
     OpcodeEncFieldType_DISP,
     OpcodeEncFieldType_DATA,

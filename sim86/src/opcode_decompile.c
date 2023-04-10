@@ -20,25 +20,46 @@ int OpcodeType_decompile(OpcodeType type, char *dst) {
     return i;
 }
 
-int OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess, char *dst) {
-    static const char *regs[Register_COUNT] = {
-            [Register_AX] = "a",
-            [Register_BX] = "b",
-            [Register_CX] = "c",
-            [Register_DX] = "d",
+const char *OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess) {
+    static const char *byteRegs[8] = {
+            [(Register_AX << 1) | 0] = "al",
+            [(Register_BX << 1) | 0] = "bl",
+            [(Register_CX << 1) | 0] = "cl",
+            [(Register_DX << 1) | 0] = "dl",
+            [(Register_AX << 1) | 1] = "ah",
+            [(Register_BX << 1) | 1] = "bh",
+            [(Register_CX << 1) | 1] = "ch",
+            [(Register_DX << 1) | 1] = "dh",
+    };
+    static const char *wordRegs[Register_COUNT] = {
+            [Register_AX] = "ax",
+            [Register_BX] = "bx",
+            [Register_CX] = "cx",
+            [Register_DX] = "dx",
             [Register_SP] = "sp",
             [Register_BP] = "bp",
             [Register_SI] = "si",
             [Register_DI] = "di",
+            [Register_ES] = "es",
+            [Register_CS] = "cs",
+            [Register_SS] = "ss",
+            [Register_DS] = "ds",
+            [Register_IP] = "ip",
     };
-    const char *reg = regs[regAccess->reg];
+
+    const bool invalid
+         = regAccess->size == RegSize_NONE
+        || (regAccess->size == RegSize_WORD && regAccess->offset != RegOffset_NONE)
+        || (regAccess->size == RegSize_BYTE && regAccess->offset == RegOffset_NONE)
+        ;
+    if(invalid) {
+        return "invalid";
+    }
 
     if(regAccess->size == RegSize_BYTE) {
-        return sprintf(dst, "%s%c", reg, regAccess->offset == RegOffset_LOW ? 'l' : 'h');
-    } else if(reg[1] == 0) {
-        return sprintf(dst, "%sx", reg);
-    } else {
-        return sprintf(dst, "%s", reg);
+        return byteRegs[(regAccess->reg << 1) | (regAccess->offset - 1)];
+    } else { // regAccess->size == RegSize_WORD
+        return wordRegs[regAccess->reg];
     }
 }
 
@@ -50,12 +71,11 @@ int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst) {
     *dst++ = '[';
 
     if(terms[0].present) {
-        dst += OpcodeRegAccess_decompile(&memAccess->terms[0].reg, dst);
+        dst += sprintf(dst, "%s", OpcodeRegAccess_decompile(&memAccess->terms[0].reg));
     }
 
     if(terms[1].present) {
-        dst += sprintf(dst, " + ");
-        dst += OpcodeRegAccess_decompile(&memAccess->terms[1].reg, dst);
+        dst += sprintf(dst, " + %s", OpcodeRegAccess_decompile(&memAccess->terms[1].reg));
     }
 
     if(displacement) {
@@ -86,7 +106,8 @@ const char *RegSize_decompile(RegSize regSize) {
 int OpcodeImmAccess_decompile(const OpcodeImmAccess *immAccess, bool explicitSize, char *dst) {
     const char *size = explicitSize ? RegSize_decompile(immAccess->size) : "";
     const char *ws = explicitSize ? " " : "";
-    return sprintf(dst, "%s%s%d", size, ws, immAccess->value);
+    const int value = immAccess->size == RegSize_BYTE ? (uint8_t) immAccess->value : (uint16_t) immAccess->value;
+    return sprintf(dst, "%s%s%d", size, ws, value);
 }
 
 int OpcodeIpincAccess_decompile(const OpcodeImmAccess *ipincAccess, char *dst) {
@@ -103,7 +124,7 @@ int OpcodeIpincAccess_decompile(const OpcodeImmAccess *ipincAccess, char *dst) {
 int OpcodeArg_decompile(const OpcodeArg *arg, bool explicitSize, char *dst) {
     switch(arg->type) {
         case OpcodeArgType_NONE: return 0;
-        case OpcodeArgType_REGISTER: return OpcodeRegAccess_decompile(&arg->reg, dst);
+        case OpcodeArgType_REGISTER: return sprintf(dst, "%s", OpcodeRegAccess_decompile(&arg->reg));
         case OpcodeArgType_MEMORY: return OpcodeMemAccess_decompile(&arg->mem, dst);
         case OpcodeArgType_IMMEDIATE: return OpcodeImmAccess_decompile(&arg->imm, explicitSize, dst);
         case OpcodeArgType_IPINC: return OpcodeIpincAccess_decompile(&arg->ipinc, dst);
