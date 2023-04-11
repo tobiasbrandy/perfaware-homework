@@ -40,7 +40,7 @@ static uint16_t get_register(const OpcodeRegAccess *access, const Memory *memory
 
 static inline uint32_t mem_effective_addr(const OpcodeMemAccess *access, const Memory *memory) {
     return (access->terms[0].present ? get_register(&access->terms[0].reg, memory) : 0)
-           + (access->terms[0].present ? get_register(&access->terms[0].reg, memory) : 0)
+           + (access->terms[1].present ? get_register(&access->terms[1].reg, memory) : 0)
            + access->displacement
            ;
 }

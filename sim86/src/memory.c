@@ -31,7 +31,7 @@ Memory Memory_create(void) {
 }
 
 inline uint8_t *Memory_segment_ptr(const Memory *mem, const Register segmentReg) {
-    return &mem->ram[segmentReg << 4];
+    return &mem->ram[mem->registers[segmentReg] << 4];
 }
 
 inline const uint8_t *Memory_code_ptr(const Memory *mem) {

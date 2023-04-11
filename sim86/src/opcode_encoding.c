@@ -143,16 +143,19 @@ static OpcodeMemAccess resolve_mem_access(const uint8_t rm, const int16_t displa
             [7] = {{{Register_BX, 2, 0}, true}, {{0,0,0}, false}},
     };
 
+    const RegSize size = w ? RegSize_WORD : RegSize_BYTE;
     if(directAccess) {
         const OpcodeMemAccess ret = {
                 .terms = {{{0,0,0}, false}, {{0,0,0}, false}},
                 .displacement = displacement,
+                .size = size,
         };
         return ret;
     } else {
         const OpcodeMemAccess ret = {
                 .terms = {rmToTerms[rm][0], rmToTerms[rm][1]},
                 .displacement = displacement,
+                .size = size,
         };
         return ret;
     }
