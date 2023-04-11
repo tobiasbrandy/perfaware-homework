@@ -1,7 +1,7 @@
 #include "memory.h"
 
 //#define INIT_SEGMENT_POS(n) (RAM_LOW_RESERVED + n*(SEGMENT_SIZE >> 4))
-#define INIT_SEGMENT_POS(n) 0 // TODO: Pongo esto para que salga bien el output de trace
+#define INIT_SEGMENT(n) 0 // By convention (not rel 8086) we start every segment at 0
 #define MEM_MASK (RAM_SIZE-1)
 
 static uint8_t ram[RAM_SIZE];
@@ -19,10 +19,10 @@ Memory Memory_create(void) {
                     [Register_BP] = 0,
                     [Register_SI] = 0,
                     [Register_DI] = 0,
-                    [Register_ES] = INIT_SEGMENT_POS(0),
-                    [Register_CS] = INIT_SEGMENT_POS(1),
-                    [Register_SS] = INIT_SEGMENT_POS(2),
-                    [Register_DS] = INIT_SEGMENT_POS(3),
+                    [Register_ES] = INIT_SEGMENT(0),
+                    [Register_CS] = INIT_SEGMENT(1),
+                    [Register_SS] = INIT_SEGMENT(2),
+                    [Register_DS] = INIT_SEGMENT(3),
                     [Register_IP] = 0,
             },
             .flags = {0},
