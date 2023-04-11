@@ -2,6 +2,8 @@
 
 SUCCESS=true
 
+printf "\n"
+
 for ASM_PATH in "$@"
 do
   TXT_PATH="${ASM_PATH%.*}.txt"
@@ -12,6 +14,7 @@ do
   if [ $? -ne 0 ]
   then
     echo "Error while running $ASM_PATH"
+    printf "\n"
     SUCCESS=false
   fi
 
@@ -19,6 +22,7 @@ do
   if [ $? -ne 0 ]
   then
     echo "File $ASM_PATH run trace doesn't match $TXT_PATH"
+    printf "\n"
     SUCCESS=false
   fi
 done
@@ -28,7 +32,8 @@ rm "test_run.out"
 
 if [ $SUCCESS = true ]
 then
-  echo "All tests ran correctly"
+  echo "All files ran correctly"
+  printf "\n"
   exit 0
 else
   exit 1
