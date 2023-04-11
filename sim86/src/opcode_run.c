@@ -101,20 +101,7 @@ static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, con
     }
 }
 
-static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data, FILE *trace) {
-    // Trace setup
-    OpcodeArg traceArg = *arg;
-    uint16_t ogArgData;
-    if(trace) {
-        if(arg->type == OpcodeArgType_REGISTER) {
-            // We always trace the full register
-            traceArg.reg.size = RegSize_WORD;
-            traceArg.reg.offset = RegOffset_NONE;
-        }
-
-        ogArgData = get_arg_data(&traceArg, memory);
-    }
-
+static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data) {
     switch(arg->type) {
         case OpcodeArgType_REGISTER: set_register(&arg->reg, memory, data); break;
         case OpcodeArgType_MEMORY: set_memory(&arg->mem, memory, data); break;
@@ -128,12 +115,15 @@ static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t da
             abort();
         }
     }
+}
 
-    if(trace) {
-        char opArg[MAX_OP_ARG_LEN + 1];
-        OpcodeArg_decompile(&traceArg, false, opArg);
-        fprintf(trace, " %s:0x%x->0x%x", opArg, ogArgData, get_arg_data(&traceArg, memory));
+static inline void unconditional_jmp(const Opcode *opcode, Memory *memory) {
+    if(opcode->dst.type != OpcodeArgType_IPINC) {
+        fprintf(stderr, "Jmp instruction didn't have an IPINC type argument in its destination argument!\n");
+        abort();
     }
+
+    memory->registers[Register_IP] += get_immediate(&opcode->dst.ipinc);
 }
 
 /* ------------------------- FLAGS ---------------------- */
@@ -179,23 +169,23 @@ static inline bool set_parity(const uint8_t result) {
 
 /* -------------------- OPCODES --------------------------- */
 
-typedef void (*OpcodeF)(const Opcode *opcode, Memory *memory, FILE* trace);
+typedef void (*OpcodeF)(const Opcode *opcode, Memory *memory);
 
-static void NONE(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void NONE(const Opcode *opcode, Memory *memory) {
     fprintf(stderr, "Opcode missing!\n");
     abort();
 }
 
-static void MOV(const Opcode *opcode, Memory *memory, FILE *trace) {
-    set_arg_data(&opcode->dst, memory, get_arg_data(&opcode->src, memory), trace);
+static void MOV(const Opcode *opcode, Memory *memory) {
+    set_arg_data(&opcode->dst, memory, get_arg_data(&opcode->src, memory));
 }
 
-static void ADD(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void ADD(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l + r;
 
-    set_arg_data(&opcode->dst, memory, result, trace);
+    set_arg_data(&opcode->dst, memory, result);
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
     memory->flags.overflow = set_add_overflow(size, l, r);
@@ -206,16 +196,16 @@ static void ADD(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = set_add_carry(size, l, r);
 }
 
-static void ADC(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void ADC(const Opcode *opcode, Memory *memory) {
     // TODO
 }
 
-static void SUB(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void SUB(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l - r;
 
-    set_arg_data(&opcode->dst, memory, result, trace);
+    set_arg_data(&opcode->dst, memory, result);
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
     memory->flags.overflow = set_sub_overflow(l, r);
@@ -226,11 +216,11 @@ static void SUB(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = set_sub_carry(l, r);
 }
 
-static void SBB(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void SBB(const Opcode *opcode, Memory *memory) {
     // TODO
 }
 
-static void CMP(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void CMP(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l - r;
@@ -244,12 +234,12 @@ static void CMP(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = set_sub_carry(l, r);
 }
 
-static void AND(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void AND(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l & r;
 
-    set_arg_data(&opcode->dst, memory, result, trace);
+    set_arg_data(&opcode->dst, memory, result);
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
     memory->flags.overflow = 0;
@@ -259,12 +249,12 @@ static void AND(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = 0;
 }
 
-static void OR(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void OR(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l | r;
 
-    set_arg_data(&opcode->dst, memory, result, trace);
+    set_arg_data(&opcode->dst, memory, result);
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
     memory->flags.overflow = 0;
@@ -274,12 +264,12 @@ static void OR(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = 0;
 }
 
-static void XOR(const Opcode *opcode, Memory *memory, FILE *trace) {
+static void XOR(const Opcode *opcode, Memory *memory) {
     const uint16_t l = get_arg_data(&opcode->dst, memory);
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l ^ r;
 
-    set_arg_data(&opcode->dst, memory, result, trace);
+    set_arg_data(&opcode->dst, memory, result);
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
     memory->flags.overflow = 0;
@@ -289,84 +279,86 @@ static void XOR(const Opcode *opcode, Memory *memory, FILE *trace) {
     memory->flags.carry = 0;
 }
 
-static void JE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JE(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.zero) {
+        unconditional_jmp(opcode, memory);
+    }
 }
 
-static void JL(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JL(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.sign ^ memory->flags.overflow) unconditional_jmp(opcode, memory);
 }
 
-static void JLE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JLE(const Opcode *opcode, Memory *memory) {
+    if((memory->flags.sign ^ memory->flags.overflow) || memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JB(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JB(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.carry) unconditional_jmp(opcode, memory);
 }
 
-static void JBE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JBE(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.carry || memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JP(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JP(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.parity) unconditional_jmp(opcode, memory);
 }
 
-static void JO(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JO(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.overflow) unconditional_jmp(opcode, memory);
 }
 
-static void JS(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JS(const Opcode *opcode, Memory *memory) {
+    if(memory->flags.sign) unconditional_jmp(opcode, memory);
 }
 
-static void JNE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNE(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JNL(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNL(const Opcode *opcode, Memory *memory) {
+    if(!(memory->flags.sign ^ memory->flags.overflow)) unconditional_jmp(opcode, memory);
 }
 
-static void JNLE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNLE(const Opcode *opcode, Memory *memory) {
+    if(!(memory->flags.sign ^ memory->flags.overflow) && !memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JNB(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNB(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.carry) unconditional_jmp(opcode, memory);
 }
 
-static void JNBE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNBE(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.carry && !memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JNP(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNP(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.parity) unconditional_jmp(opcode, memory);
 }
 
-static void JNO(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNO(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.overflow) unconditional_jmp(opcode, memory);
 }
 
-static void JNS(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JNS(const Opcode *opcode, Memory *memory) {
+    if(!memory->flags.sign) unconditional_jmp(opcode, memory);
 }
 
-static void LOOP(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void LOOP(const Opcode *opcode, Memory *memory) {
+    if(--memory->registers[Register_CX]) unconditional_jmp(opcode, memory);
 }
 
-static void LOOPE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void LOOPE(const Opcode *opcode, Memory *memory) {
+    if(--memory->registers[Register_CX] && memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void LOOPNE(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void LOOPNE(const Opcode *opcode, Memory *memory) {
+    if(--memory->registers[Register_CX] && !memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void JCXZ(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+static void JCXZ(const Opcode *opcode, Memory *memory) {
+    if(!memory->registers[Register_CX]) unconditional_jmp(opcode, memory);
 }
 
 void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
@@ -378,16 +370,45 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
             #include "opcode_encoding_table.inl"
     };
 
-    const uint16_t ogIp = memory->registers[Register_IP];
-    const Flags ogFlags = memory->flags;
+    // Trace setup
+    uint16_t ogIp;
+    Flags ogFlags;
+    OpcodeArg traceDst;
+    uint16_t ogDstData = 0;
+    if(trace) {
+        ogIp = memory->registers[Register_IP];
+
+        ogFlags = memory->flags;
+
+        traceDst = opcode->dst;
+        if(traceDst.type != OpcodeArgType_NONE) {
+            if(opcode->dst.type == OpcodeArgType_REGISTER) {
+                // We always trace the full destination register
+                traceDst.reg.size = RegSize_WORD;
+                traceDst.reg.offset = RegOffset_NONE;
+            }
+
+            ogDstData = get_arg_data(&traceDst, memory);
+        }
+    }
 
     // Advance IP
     memory->registers[Register_IP] += opcode->len;
 
     // Run opcode
-    ops[opcode->type](opcode, memory, trace);
+    ops[opcode->type](opcode, memory);
 
     if(trace) {
+        // Trace destination
+        if(traceDst.type != OpcodeArgType_NONE) {
+            const uint16_t dstData = get_arg_data(&traceDst, memory);
+            if(ogDstData != dstData) {
+                char dstName[MAX_OP_ARG_LEN + 1];
+                OpcodeArg_decompile(&traceDst, false, dstName);
+                fprintf(trace, " %s:0x%x->0x%x", dstName, ogDstData, dstData);
+            }
+        }
+
         // Trace IP
         const uint16_t ip = memory->registers[Register_IP];
         if(ogIp != ip) {
