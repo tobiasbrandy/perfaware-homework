@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SUCCESS=true
+
 for ASM_PATH in "$@"
 do
   nasm "$ASM_PATH" -o "test_asm_diff_nasm.out"
@@ -10,12 +12,7 @@ do
   if [ $? -ne 0 ]
   then
     echo "File $ASM_PATH could not be disassembled correctly"
-
-    rm "test_asm_diff_sim86.asm"
-    rm "test_asm_diff_nasm.out"
-    rm "test_asm_diff_sim86.out"
-
-    exit 1
+    SUCCESS=false
   fi
 done
 
@@ -23,7 +20,10 @@ rm "test_asm_diff_sim86.asm"
 rm "test_asm_diff_nasm.out"
 rm "test_asm_diff_sim86.out"
 
-echo "All files disassembled correctly"
-
-
-
+if [ $SUCCESS = true ]
+then
+  echo "All files decompiled correctly"
+  exit 0
+else
+  exit 1
+fi
