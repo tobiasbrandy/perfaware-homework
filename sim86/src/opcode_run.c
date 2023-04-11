@@ -373,14 +373,9 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
     // Trace setup
     uint16_t ogRegs[Register_COUNT];
     Flags ogFlags;
-    uint16_t ogMemData = 0;
     if(trace) {
         memcpy(ogRegs, memory->registers, 2*Register_COUNT);
         ogFlags = memory->flags;
-
-        if(opcode->dst.type == OpcodeArgType_MEMORY) {
-            ogMemData = get_arg_data(&opcode->dst, memory);
-        }
     }
 
     // Advance IP
@@ -390,16 +385,6 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
     ops[opcode->type](opcode, memory);
 
     if(trace) {
-        // Trace memory
-        if(opcode->dst.type == OpcodeArgType_MEMORY) {
-            const uint16_t memData = get_memory(&opcode->dst.mem, memory);
-            if(ogMemData != memData) {
-                char dstName[MAX_OP_ARG_LEN + 1];
-                OpcodeMemAccess_decompile(&opcode->dst.mem, dstName);
-                fprintf(trace, " %s:0x%x->0x%x", dstName, ogMemData, memData);
-            }
-        }
-
         // Trace Registers
         const uint16_t *regs = memory->registers;
         OpcodeRegAccess regAccess = {.reg = 0, .size = RegSize_WORD, .offset = RegOffset_NONE};

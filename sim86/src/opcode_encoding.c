@@ -131,7 +131,7 @@ static OpcodeRegAccess resolve_seg_reg_access(const uint8_t segReg) {
     return regTable[segReg];
 }
 
-static OpcodeMemAccess resolve_mem_access(const uint8_t rm, const int16_t displacement, bool directAccess) {
+static OpcodeMemAccess resolve_mem_access(const uint8_t rm, const int16_t displacement, const bool w, const bool directAccess) {
     static const OpcodeAddrRegTerm rmToTerms[][2] = {
             [0] = {{{Register_BX, 2, 0}, true}, {{Register_SI, 2, 0}, true}},
             [1] = {{{Register_BX, 2, 0}, true}, {{Register_DI, 2, 0}, true}},
@@ -283,7 +283,7 @@ OpcodeDecodeErr OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *op
         } else {
             // Memory mode
             rmArg->type = OpcodeArgType_MEMORY;
-            rmArg->mem = resolve_mem_access(rm, displacement, directAccess);
+            rmArg->mem = resolve_mem_access(rm, displacement, w, directAccess);
         }
     }
 

@@ -14,7 +14,7 @@ int OpcodeType_decompile(OpcodeType type, char *dst);
 
 const char *OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess);
 
-int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst);
+int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, bool explicitSize, char *dst);
 
 const char *RegSize_decompile(RegSize regSize);
 
