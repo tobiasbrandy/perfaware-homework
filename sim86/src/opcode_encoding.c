@@ -158,6 +158,16 @@ static OpcodeMemAccess resolve_mem_access(const uint8_t rm, const int16_t displa
     }
 }
 
+static inline OpcodeDecodeErr CodeReaderErr_to_OpcodeDecodeErr(const CodeReaderErr err) {
+    switch(err) {
+        case CodeReaderErr_OK: return OpcodeDecodeErr_OK;
+        case CodeReaderErr_END: return OpcodeDecodeErr_END;
+        case CodeReaderErr_UNALIGNED: return OpcodeDecodeErr_INVALID; // Fields are cross byte
+        case CodeReaderErr_INVALID: assert(false);
+    }
+    assert(false);
+}
+
 static OpcodeDecodeErr decode_fields(bool hasField[], uint8_t fields[], const OpcodeEncField encFields[], CodeReader *reader) {
     for(int fieldIdx = 0; encFields[fieldIdx].type != OpcodeEncFieldType_END; fieldIdx++) {
         if(fieldIdx >= MAX_ENC_FIELDS) {
@@ -176,12 +186,7 @@ static OpcodeDecodeErr decode_fields(bool hasField[], uint8_t fields[], const Op
         uint8_t value;
         const CodeReaderErr err = CodeReader_get_bits_and_advance(reader, field.length, &value);
         if(err) {
-            switch(err) {
-                case CodeReaderErr_OK: break;
-                case CodeReaderErr_END: return OpcodeDecodeErr_END;
-                case CodeReaderErr_UNALIGNED: return OpcodeDecodeErr_INVALID; // Fields are cross byte
-                case CodeReaderErr_INVALID: assert(false);
-            }
+            return CodeReaderErr_to_OpcodeDecodeErr(err);
         }
 
         if(fieldType == OpcodeEncFieldType_LITERAL && value != field.value) {
@@ -203,7 +208,7 @@ static OpcodeType resolve_type(const OpcodeEncType encType) {
     return (OpcodeType) encType;
 }
 
-int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const uint8_t code[], const uint8_t codeEnd[]) {
+OpcodeDecodeErr OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const uint8_t code[], const uint8_t codeEnd[]) {
     bool hasField[OpcodeEncFieldType_COUNT] = {0};
     uint8_t fields[OpcodeEncFieldType_COUNT] = {0};
 
@@ -235,23 +240,24 @@ int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const 
     CodeReaderErr readErr;
 
     int16_t displacement;
-    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, dispLen, &displacement)) < 0) {
-        return readErr;
+    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, dispLen, &displacement))) {
+        return CodeReaderErr_to_OpcodeDecodeErr(readErr);
     }
 
     int16_t data;
-    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, dataLen, &data)) < 0) {
-        return readErr;
+    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, dataLen, &data))) {
+        return CodeReaderErr_to_OpcodeDecodeErr(readErr);
     }
 
     int16_t ipinc;
-    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, ipincLen, &ipinc)) < 0) {
-        return readErr;
+    if((readErr = CodeReader_get_bytes_and_advance(&codeReader, ipincLen, &ipinc))) {
+        return CodeReaderErr_to_OpcodeDecodeErr(readErr);
     }
 
     opcode->type = resolve_type(encoding->type);
     opcode->dst.type = OpcodeArgType_NONE;
     opcode->src.type = OpcodeArgType_NONE;
+    opcode->len = codeReader.code - code;
 
     OpcodeArg *regArg = d ? &opcode->dst : &opcode->src;
     OpcodeArg *rmArg = d ? &opcode->src : &opcode->dst;
@@ -287,7 +293,7 @@ int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const 
     } else if(rmArg->type == OpcodeArgType_NONE) {
         immArg = rmArg;
     } else {
-        return (int) (codeReader.code - code); // No immediate arg -> We are done
+        return OpcodeDecodeErr_OK; // No immediate arg -> We are done
     }
 
     if(dataLen) {
@@ -302,7 +308,7 @@ int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const 
         immArg->imm.size = ipincLen;
     }
 
-    return (int) (codeReader.code - code);
+    return OpcodeDecodeErr_OK;
 
     #undef HAS_FIELD
     #undef FIELD

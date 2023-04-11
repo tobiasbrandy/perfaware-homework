@@ -53,12 +53,12 @@ typedef struct {
 } OpcodeEncoding;
 
 typedef enum {
-    OpcodeDecodeErr_OK          =  0,
-    OpcodeDecodeErr_NOT_COMPAT  = -1, // Encoding and code are not compatible
-    OpcodeDecodeErr_END         = -2, // Decoder reached end before decoding finished
-    OpcodeDecodeErr_INVALID     = -3, // OpcodeEncoding is invalid
+    OpcodeDecodeErr_OK = 0,
+    OpcodeDecodeErr_NOT_COMPAT, // Encoding and code are not compatible
+    OpcodeDecodeErr_END,        // Decoder reached end before decoding finished
+    OpcodeDecodeErr_INVALID,    // OpcodeEncoding is invalid
 } OpcodeDecodeErr;
 
-int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const uint8_t code[], const uint8_t codeEnd[]);
+OpcodeDecodeErr OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const uint8_t code[], const uint8_t codeEnd[]);
 
 #endif //SIM86_OPCODE_ENCODING_H

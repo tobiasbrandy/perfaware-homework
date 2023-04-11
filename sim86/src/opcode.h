@@ -87,6 +87,7 @@ typedef struct {
 typedef struct {
     OpcodeType type;
     OpcodeArg dst, src;
+    uint8_t len;
 } Opcode;
 
 RegSize OpcodeArg_size(const OpcodeArg *arg);

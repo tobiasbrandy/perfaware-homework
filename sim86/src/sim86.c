@@ -29,7 +29,7 @@ static void print_opcode_decoding_error(const OpcodeDecodeErr err) {
     }
 }
 
-static bool next_opcode(Opcode *opcode, Memory *mem) {
+static bool parse_opcode(Opcode *opcode, Memory *mem) {
     if(Memory_code_ended(mem)) {
         return false;
     }
@@ -43,27 +43,26 @@ static bool next_opcode(Opcode *opcode, Memory *mem) {
         exit(EXIT_FAILURE);
     }
 
-    const int sizeOrErr = OpcodeEncoding_decode(encoding, opcode, codePtr, codeEnd);
-    if(sizeOrErr < 0) {
-        print_opcode_decoding_error((OpcodeDecodeErr) sizeOrErr);
+    const OpcodeDecodeErr err = OpcodeEncoding_decode(encoding, opcode, codePtr, codeEnd);
+    if(err) {
+        print_opcode_decoding_error(err);
         exit(EXIT_FAILURE);
     }
 
-    mem->registers[Register_IP] += sizeOrErr;
     return true;
 }
 
 static void decompile86(Memory *memory, FILE *out) {
     fprintf(out, "bits 16\n\n");
 
-    for(Opcode opcode; next_opcode(&opcode, memory); ) {
+    for(Opcode opcode; parse_opcode(&opcode, memory); memory->registers[Register_IP] += opcode.len) {
         Opcode_decompile_to_file(&opcode, out);
         fputc('\n', out);
     }
 }
 
 static void run86(Memory *memory, FILE *trace) {
-    for(Opcode opcode; next_opcode(&opcode, memory); ) {
+    for(Opcode opcode; parse_opcode(&opcode, memory); ) {
         if(trace) {
             Opcode_decompile_to_file(&opcode, trace);
             fputs(" ;", trace);
@@ -84,7 +83,7 @@ static void run86(Memory *memory, FILE *trace) {
         fprintf(trace, "\nFinal registers:\n");
         for(Register reg = 0; reg < Register_COUNT; ++reg) {
             const uint16_t val = regs[reg];
-            if(val && reg != Register_IP) {
+            if(val) {
                 regAccess.reg = reg;
                 fprintf(trace, "      %s: 0x%04x (%d)\n", OpcodeRegAccess_decompile(&regAccess), val, val);
             }

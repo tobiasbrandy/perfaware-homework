@@ -16,7 +16,7 @@ OpcodeEncodingTable OpcodeEncodingTable_get(void) {
 const OpcodeEncoding *OpcodeEncoding_find(const uint8_t *codeStart, const uint8_t *codeEnd) {
     for(size_t i = 0; i < tableSize; ++i) {
         int err = OpcodeEncoding_decode(&table[i], NULL, codeStart, codeEnd);
-        if(err >= 0) {
+        if(err == OpcodeDecodeErr_OK) {
             return &table[i];
         }
         if(err != OpcodeDecodeErr_NOT_COMPAT) {
