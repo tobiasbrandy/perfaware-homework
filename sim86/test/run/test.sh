@@ -15,7 +15,7 @@ do
     SUCCESS=false
   fi
 
-  cmp -s "$TXT_PATH" "test_run_trace.txt"
+  diff "$TXT_PATH" "test_run_trace.txt"
   if [ $? -ne 0 ]
   then
     echo "File $ASM_PATH run trace doesn't match $TXT_PATH"
