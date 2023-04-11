@@ -228,9 +228,9 @@ int OpcodeEncoding_decode(const OpcodeEncoding *encoding, Opcode *opcode, const 
     const bool d = FIELD(D);
 
     const bool directAccess = mod == B8(00) && rm == B8(110);
-    const RegSize dispLen = directAccess || mod == B8(10) ? RegSize_WORD : mod == B8(01) ? RegSize_BYTE : RegSize_NONE;
-    const RegSize dataLen = HAS_FIELD(DATA_IF_W) && w && !s ? RegSize_WORD : HAS_FIELD(DATA) ? RegSize_BYTE : RegSize_NONE;
-    const RegSize ipincLen = HAS_FIELD(IPINC16) ? RegSize_WORD : HAS_FIELD(IPINC8) ? RegSize_BYTE : RegSize_NONE;
+    const RegSize dispLen = directAccess || mod == B8(10) ? RegSize_WORD : mod == B8(01) ? RegSize_BYTE : 0;
+    const RegSize dataLen = HAS_FIELD(DATA_IF_W) && w && !s ? RegSize_WORD : HAS_FIELD(DATA) ? RegSize_BYTE : 0;
+    const RegSize ipincLen = HAS_FIELD(IPINC16) ? RegSize_WORD : HAS_FIELD(IPINC8) ? RegSize_BYTE : 0;
 
     CodeReaderErr readErr;
 

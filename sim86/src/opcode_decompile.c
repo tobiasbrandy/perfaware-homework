@@ -48,8 +48,7 @@ const char *OpcodeRegAccess_decompile(const OpcodeRegAccess *regAccess) {
     };
 
     const bool invalid
-         = regAccess->size == RegSize_NONE
-        || (regAccess->size == RegSize_WORD && regAccess->offset != RegOffset_NONE)
+         = (regAccess->size == RegSize_WORD && regAccess->offset != RegOffset_NONE)
         || (regAccess->size == RegSize_BYTE && regAccess->offset == RegOffset_NONE)
         ;
     if(invalid) {
@@ -96,7 +95,6 @@ int OpcodeMemAccess_decompile(const OpcodeMemAccess *memAccess, char *dst) {
 
 const char *RegSize_decompile(RegSize regSize) {
     switch(regSize) {
-        case RegSize_NONE: return "";
         case RegSize_BYTE: return "byte";
         case RegSize_WORD: return "word";
     }

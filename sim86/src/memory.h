@@ -12,6 +12,8 @@
 #define RAM_LOW_RESERVED 0x80
 #define RAM_HIGH_RESERVED 0xFFFF0
 
+#define FLAG_COUNT 9
+
 typedef struct {
     bool
     overflow, direction, interrupt, trap,
@@ -37,5 +39,7 @@ uint8_t *Memory_addr_ptr(const Memory *mem, Register segmentReg, uint16_t addr);
 bool Memory_code_ended(const Memory *mem);
 
 bool Memory_load_code(Memory *mem, FILE *code);
+
+int Flags_serialize(const Flags *flags, char *dst);
 
 #endif //SIM86_MEMORY_H

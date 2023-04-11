@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "opcode_decompile.h"
 
@@ -33,10 +34,6 @@ static uint16_t get_register(const OpcodeRegAccess *access, const Memory *memory
         case RegSize_WORD: {
             return *reg_ptr_word(access, memory);
         }
-        case RegSize_NONE: {
-            fprintf(stderr, "Opcode register access size missing!\n");
-            abort();
-        }
     }
     assert(false);
 }
@@ -52,7 +49,12 @@ static inline uint16_t get_memory(const OpcodeMemAccess *access, const Memory *m
     // TODO: Make segment selection more robust, depending on opcode
     const OpcodeAddrRegTerm lTerm = access->terms[0];
     const Register segmentReg = lTerm.present && lTerm.reg.reg == Register_BP ? Register_SS : Register_DS;
-    return *Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
+    const uint8_t *addrPtr = Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
+    switch(access->size) {
+        case RegSize_BYTE: return *addrPtr;
+        case RegSize_WORD: return *((uint16_t *) addrPtr);
+    }
+    assert(false);
 }
 
 static inline uint16_t get_immediate(const OpcodeImmAccess *access) {
@@ -81,10 +83,6 @@ static void set_register(const OpcodeRegAccess *access, Memory *memory, const ui
         case RegSize_WORD: {
             *reg_ptr_word(access, memory) = data;
         } break;
-        case RegSize_NONE: {
-            fprintf(stderr, "Opcode register access size missing!\n");
-            abort();
-        }
     }
 }
 
@@ -92,7 +90,11 @@ static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, con
     // TODO: Make segment selection more robust, depending on opcode
     const OpcodeAddrRegTerm lTerm = access->terms[0];
     const Register segmentReg = lTerm.present && lTerm.reg.reg == Register_BP ? Register_SS : Register_DS;
-    *Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory)) = data;
+    uint8_t *addrPtr = Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
+    switch(access->size) {
+        case RegSize_BYTE: *addrPtr = data;
+        case RegSize_WORD: *((uint16_t *) addrPtr) = data;
+    }
 }
 
 static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t data, FILE *trace) {
@@ -126,7 +128,64 @@ static void set_arg_data(const OpcodeArg *arg, Memory *memory, const uint16_t da
     if(trace) {
         char opArg[MAX_OP_ARG_LEN + 1];
         OpcodeArg_decompile(&traceArg, false, opArg);
-        fprintf(trace, "%s:0x%x->0x%x", opArg, ogArgData, get_arg_data(&traceArg, memory));
+        fprintf(trace, " %s:0x%x->0x%x", opArg, ogArgData, get_arg_data(&traceArg, memory));
+    }
+}
+
+/* ------------------------- FLAGS ---------------------- */
+
+static inline bool set_add_carry(const RegSize size, const uint16_t a, const uint16_t b) {
+    return b > RegSize_max(size) - a;
+}
+
+static inline bool set_sub_carry(const uint16_t a, const uint16_t b) {
+    return a < b;
+}
+
+static inline bool set_add_overflow(const RegSize size, const uint16_t a, const uint16_t b) {
+    return set_add_carry(size, a << 1, b << 1);
+}
+
+static inline bool set_sub_overflow(const uint16_t a, const uint16_t b) {
+    return set_sub_carry(a << 1, b << 1);
+}
+
+static inline bool set_add_aux_carry(const uint16_t a, const uint16_t b) {
+    return (b & 0xF) > 0xF - (a & 0xF);
+}
+
+static inline bool set_sub_aux_carry(const uint16_t a, const uint16_t b) {
+    return set_sub_carry(a & 0xF, b & 0xF);
+}
+
+static inline bool set_sign(const RegSize size, const uint16_t result) {
+    return ((RegSize_max(size) + 1) >> 1) & result;
+}
+
+static inline bool set_zero(const uint16_t result) {
+    return result == 0;
+}
+
+static inline bool set_parity(const uint8_t result) {
+    uint8_t y = result ^ (result >> 1);
+    y = y ^ (y >> 2);
+    y = y ^ (y >> 4);
+    return !(y & 1);
+}
+
+static void trace_flags(const Flags *before, const Flags *after, FILE *trace) {
+    if(!trace) {
+        return;
+    }
+
+    char beforeBuf[FLAG_COUNT + 1];
+    Flags_serialize(before, beforeBuf);
+
+    char afterBuf[FLAG_COUNT + 1];
+    Flags_serialize(after, afterBuf);
+
+    if(strcmp(beforeBuf, afterBuf) != 0) {
+        fprintf(trace, " flags:%s->%s", beforeBuf, afterBuf);
     }
 }
 
@@ -144,7 +203,22 @@ static void MOV(const Opcode *opcode, Memory *memory, FILE *trace) {
 }
 
 static void ADD(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l + r;
+
+    set_arg_data(&opcode->dst, memory, result, trace);
+
+    Flags flags = memory->flags;
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    flags.overflow = set_add_overflow(size, l, r);
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.auxCarry = set_add_aux_carry(l, r);
+    flags.parity = set_parity(result);
+    flags.carry = set_add_carry(size, l, r);
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void ADC(const Opcode *opcode, Memory *memory, FILE *trace) {
@@ -152,7 +226,22 @@ static void ADC(const Opcode *opcode, Memory *memory, FILE *trace) {
 }
 
 static void SUB(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l - r;
+
+    set_arg_data(&opcode->dst, memory, result, trace);
+
+    Flags flags = memory->flags;
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    flags.overflow = set_sub_overflow(l, r);
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.auxCarry = set_sub_aux_carry(l, r);
+    flags.parity = set_parity(result);
+    flags.carry = set_add_carry(size, l, r);
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void SBB(const Opcode *opcode, Memory *memory, FILE *trace) {
@@ -160,19 +249,59 @@ static void SBB(const Opcode *opcode, Memory *memory, FILE *trace) {
 }
 
 static void CMP(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l - r;
+
+    Flags flags = memory->flags;
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    flags.overflow = set_sub_overflow(l, r);
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.auxCarry = set_sub_aux_carry(l, r);
+    flags.parity = set_parity(result);
+    flags.carry = set_add_carry(size, l, r);
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void AND(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l & r;
+
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    memory->flags.overflow = 0;
+    memory->flags.sign = set_sign(size, result);
+    memory->flags.zero = set_zero(result);
+    memory->flags.parity = set_parity(result);
+    memory->flags.carry = 0;
 }
 
 static void OR(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l | r;
+
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    memory->flags.overflow = 0;
+    memory->flags.sign = set_sign(size, result);
+    memory->flags.zero = set_zero(result);
+    memory->flags.parity = set_parity(result);
+    memory->flags.carry = 0;
 }
 
 static void XOR(const Opcode *opcode, Memory *memory, FILE *trace) {
-    // TODO
+    const uint16_t l = get_arg_data(&opcode->dst, memory);
+    const uint16_t r = get_arg_data(&opcode->src, memory);
+    const uint16_t result = l ^ r;
+
+    const RegSize size = OpcodeArg_size(&opcode->dst);
+    memory->flags.overflow = 0;
+    memory->flags.sign = set_sign(size, result);
+    memory->flags.zero = set_zero(result);
+    memory->flags.parity = set_parity(result);
+    memory->flags.carry = 0;
 }
 
 static void JE(const Opcode *opcode, Memory *memory, FILE *trace) {

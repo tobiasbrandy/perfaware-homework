@@ -58,5 +58,20 @@ bool Memory_load_code(Memory *mem, FILE *codeSrc) {
     return true;
 }
 
+int Flags_serialize(const Flags *flags, char *dst) {
+    char *ogDst = dst;
+    if(flags->carry) *dst++ = 'C';
+    if(flags->parity) *dst++ = 'P';
+    if(flags->auxCarry) *dst++ = 'A';
+    if(flags->zero) *dst++ = 'Z';
+    if(flags->sign) *dst++ = 'S';
+    if(flags->overflow) *dst++ = 'O';
+    if(flags->trap) *dst++ = 'T';
+    if(flags->interrupt) *dst++ = 'I';
+    if(flags->direction) *dst++ = 'D';
+    *dst = 0;
+    return (int) (dst - ogDst);
+}
+
 #undef INIT_SEGMENT_POS
 #undef MEM_MASK

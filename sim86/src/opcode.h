@@ -24,7 +24,6 @@ typedef enum {
 } Register;
 
 typedef enum {
-    RegSize_NONE = 0,
     RegSize_BYTE = 1,
     RegSize_WORD = 2,
 } RegSize;
@@ -59,6 +58,7 @@ typedef struct {
 typedef struct {
     OpcodeAddrRegTerm terms[2];
     int16_t displacement;
+    RegSize size;
 } OpcodeMemAccess;
 
 typedef struct {
@@ -88,5 +88,9 @@ typedef struct {
     OpcodeType type;
     OpcodeArg dst, src;
 } Opcode;
+
+RegSize OpcodeArg_size(const OpcodeArg *arg);
+
+int RegSize_max(RegSize size);
 
 #endif //SIM86_OPCODE_DECODE_H

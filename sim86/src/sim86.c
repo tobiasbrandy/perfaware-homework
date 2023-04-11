@@ -66,7 +66,7 @@ static void run86(Memory *memory, FILE *trace) {
     for(Opcode opcode; next_opcode(&opcode, memory); ) {
         if(trace) {
             Opcode_decompile_to_file(&opcode, trace);
-            fputs(" ; ", trace);
+            fputs(" ;", trace);
         }
 
         Opcode_run(&opcode, memory, trace);
@@ -88,6 +88,12 @@ static void run86(Memory *memory, FILE *trace) {
                 regAccess.reg = reg;
                 fprintf(trace, "      %s: 0x%04x (%d)\n", OpcodeRegAccess_decompile(&regAccess), val, val);
             }
+        }
+
+        char flagsBuf[FLAG_COUNT + 1];
+        Flags_serialize(&memory->flags, flagsBuf);
+        if(*flagsBuf) {
+            fprintf(trace, "   flags: %s\n", flagsBuf);
         }
     }
 }
