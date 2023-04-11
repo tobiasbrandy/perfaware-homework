@@ -104,6 +104,7 @@ const char *RegSize_decompile(RegSize regSize) {
 int OpcodeImmAccess_decompile(const OpcodeImmAccess *immAccess, bool explicitSize, char *dst) {
     const char *size = explicitSize ? RegSize_decompile(immAccess->size) : "";
     const char *ws = explicitSize ? " " : "";
+    // We decide to output all immediate values as unsigned by convention
     const int value = immAccess->size == RegSize_BYTE ? (uint8_t) immAccess->value : (uint16_t) immAccess->value;
     return sprintf(dst, "%s%s%d", size, ws, value);
 }

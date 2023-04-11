@@ -147,11 +147,11 @@ static inline bool set_sub_carry(const uint16_t a, const uint16_t b) {
 }
 
 static inline bool set_add_overflow(const RegSize size, const uint16_t a, const uint16_t b) {
-    return set_add_carry(size, a << 1, b << 1);
+    return set_add_carry(size, a << 1, b << 1) ^ set_add_carry(size, a, b);
 }
 
 static inline bool set_sub_overflow(const uint16_t a, const uint16_t b) {
-    return set_sub_carry(a << 1, b << 1);
+    return set_sub_carry(a << 1, b << 1) ^ set_sub_carry(a, b);
 }
 
 static inline bool set_add_aux_carry(const uint16_t a, const uint16_t b) {
@@ -213,8 +213,8 @@ static void ADD(const Opcode *opcode, Memory *memory, FILE *trace) {
 
     set_arg_data(&opcode->dst, memory, result, trace);
 
-    Flags flags = memory->flags;
     const RegSize size = OpcodeArg_size(&opcode->dst);
+    Flags flags = memory->flags;
     flags.overflow = set_add_overflow(size, l, r);
     flags.sign = set_sign(size, result);
     flags.zero = set_zero(result);
@@ -236,14 +236,14 @@ static void SUB(const Opcode *opcode, Memory *memory, FILE *trace) {
 
     set_arg_data(&opcode->dst, memory, result, trace);
 
-    Flags flags = memory->flags;
     const RegSize size = OpcodeArg_size(&opcode->dst);
+    Flags flags = memory->flags;
     flags.overflow = set_sub_overflow(l, r);
     flags.sign = set_sign(size, result);
     flags.zero = set_zero(result);
     flags.auxCarry = set_sub_aux_carry(l, r);
     flags.parity = set_parity(result);
-    flags.carry = set_add_carry(size, l, r);
+    flags.carry = set_sub_carry(l, r);
     trace_flags(&memory->flags, &flags, trace);
     memory->flags = flags;
 }
@@ -257,14 +257,14 @@ static void CMP(const Opcode *opcode, Memory *memory, FILE *trace) {
     const uint16_t r = get_arg_data(&opcode->src, memory);
     const uint16_t result = l - r;
 
-    Flags flags = memory->flags;
     const RegSize size = OpcodeArg_size(&opcode->dst);
+    Flags flags = memory->flags;
     flags.overflow = set_sub_overflow(l, r);
     flags.sign = set_sign(size, result);
     flags.zero = set_zero(result);
     flags.auxCarry = set_sub_aux_carry(l, r);
     flags.parity = set_parity(result);
-    flags.carry = set_add_carry(size, l, r);
+    flags.carry = set_sub_carry(l, r);
     trace_flags(&memory->flags, &flags, trace);
     memory->flags = flags;
 }
@@ -275,11 +275,14 @@ static void AND(const Opcode *opcode, Memory *memory, FILE *trace) {
     const uint16_t result = l & r;
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
-    memory->flags.overflow = 0;
-    memory->flags.sign = set_sign(size, result);
-    memory->flags.zero = set_zero(result);
-    memory->flags.parity = set_parity(result);
-    memory->flags.carry = 0;
+    Flags flags = memory->flags;
+    flags.overflow = 0;
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.parity = set_parity(result);
+    flags.carry = 0;
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void OR(const Opcode *opcode, Memory *memory, FILE *trace) {
@@ -288,11 +291,14 @@ static void OR(const Opcode *opcode, Memory *memory, FILE *trace) {
     const uint16_t result = l | r;
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
-    memory->flags.overflow = 0;
-    memory->flags.sign = set_sign(size, result);
-    memory->flags.zero = set_zero(result);
-    memory->flags.parity = set_parity(result);
-    memory->flags.carry = 0;
+    Flags flags = memory->flags;
+    flags.overflow = 0;
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.parity = set_parity(result);
+    flags.carry = 0;
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void XOR(const Opcode *opcode, Memory *memory, FILE *trace) {
@@ -301,11 +307,14 @@ static void XOR(const Opcode *opcode, Memory *memory, FILE *trace) {
     const uint16_t result = l ^ r;
 
     const RegSize size = OpcodeArg_size(&opcode->dst);
-    memory->flags.overflow = 0;
-    memory->flags.sign = set_sign(size, result);
-    memory->flags.zero = set_zero(result);
-    memory->flags.parity = set_parity(result);
-    memory->flags.carry = 0;
+    Flags flags = memory->flags;
+    flags.overflow = 0;
+    flags.sign = set_sign(size, result);
+    flags.zero = set_zero(result);
+    flags.parity = set_parity(result);
+    flags.carry = 0;
+    trace_flags(&memory->flags, &flags, trace);
+    memory->flags = flags;
 }
 
 static void JE(const Opcode *opcode, Memory *memory, FILE *trace) {
