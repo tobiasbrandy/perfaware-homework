@@ -52,7 +52,7 @@ static inline uint16_t get_memory(const OpcodeMemAccess *access, const Memory *m
     const uint8_t *addrPtr = Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
     switch(access->size) {
         case RegSize_BYTE: return *addrPtr;
-        case RegSize_WORD: return *((uint16_t *) addrPtr);
+        case RegSize_WORD: return (addrPtr[1] << 8) | addrPtr[0]; // Little endian
     }
     assert(false);
 }
@@ -93,7 +93,11 @@ static inline void set_memory(const OpcodeMemAccess *access, Memory *memory, con
     uint8_t *addrPtr = Memory_addr_ptr(memory, segmentReg, mem_effective_addr(access, memory));
     switch(access->size) {
         case RegSize_BYTE: *addrPtr = data;
-        case RegSize_WORD: *((uint16_t *) addrPtr) = data;
+        case RegSize_WORD: {
+            // Little endian
+            addrPtr[0] = data;
+            addrPtr[1] = data >> 8;
+        }
     }
 }
 
