@@ -349,11 +349,11 @@ static void LOOP(const Opcode *opcode, Memory *memory) {
     if(--memory->registers[Register_CX]) unconditional_jmp(opcode, memory);
 }
 
-static void LOOPE(const Opcode *opcode, Memory *memory) {
+static void LOOPZ(const Opcode *opcode, Memory *memory) {
     if(--memory->registers[Register_CX] && memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
-static void LOOPNE(const Opcode *opcode, Memory *memory) {
+static void LOOPNZ(const Opcode *opcode, Memory *memory) {
     if(--memory->registers[Register_CX] && !memory->flags.zero) unconditional_jmp(opcode, memory);
 }
 
@@ -371,24 +371,15 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
     };
 
     // Trace setup
-    uint16_t ogIp;
+    uint16_t ogRegs[Register_COUNT];
     Flags ogFlags;
-    OpcodeArg traceDst;
-    uint16_t ogDstData = 0;
+    uint16_t ogMemData = 0;
     if(trace) {
-        ogIp = memory->registers[Register_IP];
-
+        memcpy(ogRegs, memory->registers, 2*Register_COUNT);
         ogFlags = memory->flags;
 
-        traceDst = opcode->dst;
-        if(traceDst.type != OpcodeArgType_NONE) {
-            if(opcode->dst.type == OpcodeArgType_REGISTER) {
-                // We always trace the full destination register
-                traceDst.reg.size = RegSize_WORD;
-                traceDst.reg.offset = RegOffset_NONE;
-            }
-
-            ogDstData = get_arg_data(&traceDst, memory);
+        if(opcode->dst.type == OpcodeArgType_MEMORY) {
+            ogMemData = get_arg_data(&opcode->dst, memory);
         }
     }
 
@@ -399,20 +390,24 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
     ops[opcode->type](opcode, memory);
 
     if(trace) {
-        // Trace destination
-        if(traceDst.type != OpcodeArgType_NONE) {
-            const uint16_t dstData = get_arg_data(&traceDst, memory);
-            if(ogDstData != dstData) {
+        // Trace memory
+        if(opcode->dst.type == OpcodeArgType_MEMORY) {
+            const uint16_t memData = get_memory(&opcode->dst.mem, memory);
+            if(ogMemData != memData) {
                 char dstName[MAX_OP_ARG_LEN + 1];
-                OpcodeArg_decompile(&traceDst, false, dstName);
-                fprintf(trace, " %s:0x%x->0x%x", dstName, ogDstData, dstData);
+                OpcodeMemAccess_decompile(&opcode->dst.mem, dstName);
+                fprintf(trace, " %s:0x%x->0x%x", dstName, ogMemData, memData);
             }
         }
 
-        // Trace IP
-        const uint16_t ip = memory->registers[Register_IP];
-        if(ogIp != ip) {
-            fprintf(trace, " ip:0x%x->0x%x", ogIp, ip);
+        // Trace Registers
+        const uint16_t *regs = memory->registers;
+        OpcodeRegAccess regAccess = {.reg = 0, .size = RegSize_WORD, .offset = RegOffset_NONE};
+        for(Register reg = 0; reg < Register_COUNT; ++reg) {
+            if(ogRegs[reg] != regs[reg]) {
+                regAccess.reg = reg;
+                fprintf(trace, " %s:0x%x->0x%x", OpcodeRegAccess_decompile(&regAccess), ogRegs[reg], regs[reg]);
+            }
         }
 
         // Trace flags
