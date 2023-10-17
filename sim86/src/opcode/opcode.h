@@ -39,7 +39,7 @@ typedef enum {
 
     #define OPCODE(name, ...) OpcodeType_##name,
     #define SUB_OP(...)
-    #include "opcode_encoding_table.inl"
+    #include "../opcode_encoding_table/opcode_encoding_table.inl"
 
     OpcodeType_COUNT,
 } OpcodeType;

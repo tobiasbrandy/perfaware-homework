@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 
-#include "opcode.h"
+#include "opcode/opcode.h"
 
 #define MAX_OP_NAME_LEN 10 // Example: SEGMENT
 #define MAX_OP_ARG_LEN 30  // Example: `word [bp + di - 10044]\0`

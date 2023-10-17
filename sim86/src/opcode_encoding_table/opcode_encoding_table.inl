@@ -1,4 +1,4 @@
-#include "binary_lit.h"
+#include "utils/binary_lit.h"
 
 #ifndef OPCODE
 #define OPCODE(name, ...) {OpcodeEncType_##name, {__VA_ARGS__, {OpcodeEncFieldType_END}}},

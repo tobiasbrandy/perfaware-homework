@@ -3,11 +3,11 @@
 #include <string.h>
 #include <errno.h>
 
-#include "memory.h"
-#include "opcode_encoding.h"
-#include "opcode_encoding_table.h"
-#include "opcode_decompile.h"
-#include "opcode_run.h"
+#include "memory/memory.h"
+#include "opcode_encoding/opcode_encoding.h"
+#include "opcode_encoding_table/opcode_encoding_table.h"
+#include "opcode_decompile/opcode_decompile.h"
+#include "opcode_run/opcode_run.h"
 
 static void print_usage(void) {
     fprintf(stderr, "Usage: sim86 <cmd> <src_file>\n");

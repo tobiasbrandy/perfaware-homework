@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "opcode.h"
+#include "opcode/opcode.h"
 
 #define MAX_ENC_FIELDS 16
 
@@ -12,7 +12,7 @@ typedef enum {
 
     #define OPCODE(name, ...) OpcodeEncType_##name,
     #define SUB_OP(...)
-    #include "opcode_encoding_table.inl"
+    #include "opcode_encoding_table/opcode_encoding_table.inl"
 
     OpcodeEncType_COUNT,
 } OpcodeEncType;

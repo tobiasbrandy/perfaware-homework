@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "opcode_decompile.h"
+#include "opcode_decompile/opcode_decompile.h"
 
 static uint8_t *reg_ptr_byte(const OpcodeRegAccess *access, const Memory *memory) {
     const uint16_t *reg = &memory->registers[access->reg];
@@ -367,7 +367,7 @@ void Opcode_run(const Opcode *opcode, Memory *memory, FILE *trace) {
 
             #define OPCODE(name, ...) [OpcodeType_##name] = name,
             #define SUB_OP(...)
-            #include "opcode_encoding_table.inl"
+            #include "../opcode_encoding_table/opcode_encoding_table.inl"
     };
 
     // Trace setup

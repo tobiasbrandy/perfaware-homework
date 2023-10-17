@@ -2,17 +2,26 @@
 
 ## Intel 8086/88 decompiler and simulator
 
+### Build Init - Just Once
+`cc -o build build.c` 
+
 ### Build
-`make`
+`./build`
+
+### Generate compilation database
+`./build db`
 
 ### Run Decompiler
-`./bin/sim86 decompile <src_file>`
+`./sim86 decompile <src_file>`
 
 ### Run Simulation
-`./bin/sim86 run <src_file>`
+`./sim86 run <src_file>`
 
 ### Run Simulation with tracing enabled
-`./bin/sim86 trace <src_file>`
+`./sim86 trace <src_file>`
 
 ### Test against provided examples
-`make test`
+`./build test`
+
+### Clean
+`./build clean`

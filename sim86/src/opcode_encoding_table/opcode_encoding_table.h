@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "opcode_encoding.h"
+#include "opcode_encoding/opcode_encoding.h"
 
 typedef struct {
     uint16_t size;

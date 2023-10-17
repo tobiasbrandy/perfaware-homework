@@ -1,10 +1,15 @@
-# Output files
-*.out
-bin/
-debug/
-obj/
-dev/
-
 # IDE
 .idea/
 .vscode/
+
+# C
+*.d
+*.out
+*.o
+obj/
+compile_commands.json
+
+# Custom
+sim86/sim86
+build.c
+build

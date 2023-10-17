@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "opcode.h"
+#include "opcode/opcode.h"
 
 #define RAM_SIZE 0x100000 // 1 MB
 #define SEGMENT_SIZE 0x10000

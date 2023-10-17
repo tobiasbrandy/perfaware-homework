@@ -7,7 +7,7 @@ int OpcodeType_decompile(OpcodeType type, char *dst) {
     static const char *nameTable[] = {
 #define OPCODE(name, ...) [OpcodeType_##name] = #name,
 #define SUB_OP(...)
-#include "opcode_encoding_table.inl"
+#include "opcode_encoding_table/opcode_encoding_table.inl"
     };
     const char *name = nameTable[type];
 

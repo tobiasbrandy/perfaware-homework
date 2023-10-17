@@ -1,0 +1,3 @@
+[submodule "sim86/nom"]
+	path = sim86/nom
+	url = git@github.com:tobiasbrandy/nom.git
